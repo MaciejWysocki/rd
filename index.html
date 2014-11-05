@@ -28,6 +28,16 @@ body {
 #rudydres2 img {
   margin-left: 0px;
 }
+#nerbisDres {
+  position: absolute;
+  top: 570px;
+  overflow: hidden;
+  width: 150px;
+  height: 150px;
+}
+#nerbisDres img {
+  margin-left: 0px;
+}
 </style>
 </head>
 <body>
@@ -37,6 +47,9 @@ body {
 <div id="rudydres2">
  <img id="rudydres2image" src="rudydres2.png" />
 </div>
+<div id="nerbisDres">
+ <img id="nerbisDresimage" src="nerbisDres.png" />
+</div>
 </body>
 </html>
 <script type="application/javascript">
@@ -44,8 +57,9 @@ body {
  var Game = function() {
   var gameSize = { x: document.body.offsetWidth };
   this.bodies = [];
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 37, 39, 'rudydres'));
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 'rudydres2'));  
+  this.bodies = this.bodies.concat(new Player(this, gameSize, 37, 39, 38, 'rudydres'));
+  this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 87, 'rudydres2'));
+  this.bodies = this.bodies.concat(new Player(this, gameSize, 74, 76, 73, 'nerbisDres'));
 
   var self = this;
   var tick = function() {
@@ -75,33 +89,42 @@ body {
   }
  };
 
- var Player = function(game, gameSize, leftKey, rightKey, id) {
+ var Player = function(game, gameSize, leftKey, rightKey, upKey, id) {
   this.id = id;
   this.anim = 0;
   this.game = game;
   this.size = { x: 20, y: 150 };
   this.scaleX = 1;
   this.center = { x: gameSize.x / 2 };
-  this.keyboarder = new Keyboarder(leftKey, rightKey);
+  this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
  };
  Player.prototype = {
   update: function() {
+	  
+	var lastDirection = 1; 
    // If left cursor key is down...
    if (this.keyboarder.isLeftKeyDown()) {
     this.center.x -= 3;
     this.anim++;
     this.scaleX = -1;
+    this.lastDirection = -1; 
    } else if (this.keyboarder.isRightKeyDown()) {
     this.center.x += 3;
     this.anim++;
     this.scaleX = 1;
+    this.lastDirection = 1; 
+   } else if (this.keyboarder.isUpKeyDown()) {
+    this.center.y += 3;
+    this.anim++;
+    this.scaleX = this.lastDirection;
    }
   }
  };
 
- var Keyboarder = function(leftKey, rightKey) {
+ var Keyboarder = function(leftKey, rightKey, upKey) {
   this.leftKey = leftKey;
   this.rightKey = rightKey;
+  this.upKey = upKey;
   var keyState = {};
   window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
   window.addEventListener('keyup', function(e) { keyState[e.keyCode] = false; });
@@ -110,6 +133,9 @@ body {
   };
   this.isRightKeyDown = function() {
    return keyState[this.rightKey] === true;
+  };
+  this.isUpKeyDown = function() {
+   return keyState[this.upKey] === true;
   };
  };
 
