@@ -7,47 +7,29 @@ body {
   background-image: url("tlo.png");
   background-size: 100% auto;
   background-repeat: no-repeat;
+  overflow: hidden;
 }
-#rudydres {
+.dres {
   position: absolute;
   top: 570px;
   overflow: hidden;
   width: 150px;
   height: 150px;
 }
-#rudydres img {
-  margin-left: 0px;
-}
-#rudydres2 {
-  position: absolute;
-  top: 570px;
-  overflow: hidden;
-  width: 150px;
-  height: 150px;
-}
-#rudydres2 img {
-  margin-left: 0px;
-}
-#nerbisDres {
-  position: absolute;
-  top: 570px;
-  overflow: hidden;
-  width: 150px;
-  height: 150px;
-}
-#nerbisDres img {
+
+.dres img {
   margin-left: 0px;
 }
 </style>
 </head>
 <body>
-<div id="rudydres">
+<div id="rudydres" class="dres">
  <img id="rudydresimage" src="rudydres.png" />
 </div>
-<div id="rudydres2">
+<div id="rudydres2" class="dres">
  <img id="rudydres2image" src="rudydres2.png" />
 </div>
-<div id="nerbisDres">
+<div id="nerbisDres" class="dres">
  <img id="nerbisDresimage" src="nerbisDres.png" />
 </div>
 </body>
@@ -93,30 +75,26 @@ body {
   this.id = id;
   this.anim = 0;
   this.game = game;
-  this.size = { x: 20, y: 150 };
   this.scaleX = 1;
-  this.center = { x: gameSize.x / 2 };
+  this.jump = 0;
+  this.center = { x: Math.floor((Math.random() * (gameSize.x - 40)) + 20) };
   this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
  };
  Player.prototype = {
   update: function() {
-	  
-	var lastDirection = 1; 
    // If left cursor key is down...
    if (this.keyboarder.isLeftKeyDown()) {
     this.center.x -= 3;
     this.anim++;
     this.scaleX = -1;
-    this.lastDirection = -1; 
    } else if (this.keyboarder.isRightKeyDown()) {
     this.center.x += 3;
     this.anim++;
     this.scaleX = 1;
-    this.lastDirection = 1; 
-   } else if (this.keyboarder.isUpKeyDown()) {
-    this.center.y += 3;
+   } 
+   if (this.keyboarder.isUpKeyDown()) {
     this.anim++;
-    this.scaleX = this.lastDirection;
+    
    }
   }
  };
