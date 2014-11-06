@@ -65,6 +65,7 @@ body {
     var rudydres = document.getElementById(this.bodies[i].id);
     var rudydresimage = document.getElementById(this.bodies[i].id + 'image');
     rudydres.style.left = this.bodies[i].center.x + 'px';
+    rudydres.style.top = 570 - this.bodies[i].jump + 'px';
     rudydres.style.transform = 'scaleX(' + this.bodies[i].scaleX + ')';
     rudydresimage.style.marginLeft = -((Math.floor(this.bodies[i].anim / 5) % 8) * 150) + 'px';
    }
@@ -77,6 +78,7 @@ body {
   this.game = game;
   this.scaleX = 1;
   this.jump = 0;
+  this.jumpstart = 0;
   this.center = { x: Math.floor((Math.random() * (gameSize.x - 40)) + 20) };
   this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
  };
@@ -93,8 +95,18 @@ body {
     this.scaleX = 1;
    } 
    if (this.keyboarder.isUpKeyDown()) {
-    this.anim++;
-    
+     if(this.jump == 0) {
+        this.jump = 1;
+	this.jumpstart = new Date().getTime();
+     }
+   }
+   if(this.jump < 0) {
+    this.jump = 0;
+   } else if (this.jump > 0) {
+    var x = new Date().getTime() - this.jumpstart;
+    if(x > 0) {
+      this.jump = x * x / -625 + 4 * x / 5;
+    }
    }
   }
  };
