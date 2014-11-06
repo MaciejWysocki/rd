@@ -25,9 +25,11 @@ body {
 <body>
 <div id="rudydres" class="dres">
  <img id="rudydresimage" src="rudydres.png" />
+ <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
 </div>
 <div id="rudydres2" class="dres">
  <img id="rudydres2image" src="rudydres2.png" />
+ <audio id="rudydres2sound" src="rudydres2-hop.mp3"></audio>
 </div>
 <div id="nerbisDres" class="dres">
  <img id="nerbisDresimage" src="nerbisDres.png" />
@@ -98,6 +100,11 @@ body {
      if(this.jump == 0) {
         this.jump = 1;
 	this.jumpstart = new Date().getTime();
+	sound = document.getElementById(this.id + "sound");
+        if(sound) {
+          sound.load();
+          sound.play();
+        }
      }
    }
    if(this.jump < 0) {
