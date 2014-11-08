@@ -27,9 +27,9 @@ body {
  <img id="rudydresimage" src="rudydres.png" />
  <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
 </div>
-<div id="rudydres2" class="dres">
- <img id="rudydres2image" src="rudydres2.png" />
- <audio id="rudydres2sound" src="rudydres2-hop.mp3"></audio>
+<div id="lysyblokers" class="dres">
+ <img id="lysyblokersimage" src="lysyblokers.png" />
+ <audio id="lysyblokerssound" src="rudydres2-hop.mp3"></audio>
 </div>
 <div id="nerbisDres" class="dres">
  <img id="nerbisDresimage" src="nerbisDres.png" />
@@ -42,7 +42,7 @@ body {
   var gameSize = { x: document.body.offsetWidth };
   this.bodies = [];
   this.bodies = this.bodies.concat(new Player(this, gameSize, 37, 39, 38, 'rudydres'));
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 87, 'rudydres2'));
+  this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 87, 'lysyblokers'));
   this.bodies = this.bodies.concat(new Player(this, gameSize, 74, 76, 73, 'nerbisDres'));
 
   var self = this;
