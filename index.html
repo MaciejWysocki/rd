@@ -44,7 +44,7 @@ body {
   this.bodies = this.bodies.concat(new Player(this, gameSize, 37, 39, 38, 'rudydres'));
   this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 87, 'rudydres2'));
   this.bodies = this.bodies.concat(new Player(this, gameSize, 74, 76, 73, 'nerbisDres'));
-
+	console.log("this.bodies: "+this.bodies);
   var self = this;
   var tick = function() {
    self.update();
@@ -54,13 +54,29 @@ body {
   tick();
  };
 
- Game.prototype = {
-  update: function() {
-   var self = this;
-   for (var i = 0; i < this.bodies.length; i++) {
-    this.bodies[i].update();
-   }
-  },
+Game.prototype = {
+	update: function() {
+		var self = this;
+	   	for (var i = 0; i < this.bodies.length; i++) {
+			for (var j = 0; j < this.bodies.length; j++) {
+				if(this.bodies[i] != this.bodies[j]){
+					
+					var dres1 = this.bodies[i].center.x; 
+					var dres2 = this.bodies[j].center.x; 
+					
+					if(dres1 > dres2-50 && dres1 < dres2+50){
+						if(dres1 > dres2){	
+							this.bodies[i].center.x +=3;
+						}
+						if(dres1 < dres2){
+							this.bodies[i].center.x -=3;
+						}
+					}
+				}
+			}
+			this.bodies[i].update();
+		}
+	},
   
   draw: function(screen, gameSize) {
    for (var i = 0; i < this.bodies.length; i++) {
@@ -68,6 +84,7 @@ body {
     var rudydresimage = document.getElementById(this.bodies[i].id + 'image');
     rudydres.style.left = this.bodies[i].center.x + 'px';
     rudydres.style.top = 570 - this.bodies[i].jump + 'px';
+    
     rudydres.style.transform = 'scaleX(' + this.bodies[i].scaleX + ')';
     rudydresimage.style.marginLeft = -((Math.floor(this.bodies[i].anim / 5) % 8) * 150) + 'px';
    }
