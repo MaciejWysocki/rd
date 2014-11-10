@@ -5,51 +5,59 @@
 <link rel='shortcut icon' type='image/x-icon' href='rudydres.ico' />
 <style>
 body {
-  background-image: url("tlo.png");
-  background-size: 100% auto;
-  background-repeat: no-repeat;
+  background-color: #000;
+  margin: 0;
   overflow: hidden;
+}
+#game {
+  width: 1600px;
+  height: 700px;
+  background-image: url("tlo.png");
+  background-position: left bottom;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+  position: absolute;
 }
 .dres {
   position: absolute;
-  top: 570px;
   overflow: hidden;
   width: 150px;
   height: 150px;
 }
-
 .dres img {
   margin-left: 0px;
 }
 </style>
 </head>
 <body>
-<div id="rudydres" class="dres">
- <img id="rudydresimage" src="rudydres.png" />
- <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
-</div>
-<div id="lysyblokers" class="dres">
- <img id="lysyblokersimage" src="lysyblokers.png" />
- <audio id="lysyblokerssound" src="rudydres2-hop.mp3"></audio>
-</div>
-<div id="nerbisDres" class="dres">
- <img id="nerbisDresimage" src="nerbisDres.png" />
+<div id="game">
+ <audio id="ambient" src="ambient.mp3"></audio>
+ <div id="rudydres" class="dres">
+  <img id="rudydresimage" src="rudydres.png" />
+  <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
+ </div>
+ <div id="lysyblokers" class="dres">
+  <img id="lysyblokersimage" src="lysyblokers.png" />
+  <audio id="lysyblokerssound" src="rudydres2-hop.mp3"></audio>
+ </div>
+ <div id="nerbisDres" class="dres">
+  <img id="nerbisDresimage" src="nerbisDres.png" />
+  <audio id="nerbisDressound" src="nerbisDres-hop.mp3"></audio>
+ </div>
 </div>
 </body>
 </html>
 <script type="application/javascript">
 ;(function() {
  var Game = function() {
-  var gameSize = { x: document.body.offsetWidth };
   this.bodies = [];
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 37, 39, 38, 'rudydres'));
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 65, 68, 87, 'lysyblokers'));
-  this.bodies = this.bodies.concat(new Player(this, gameSize, 74, 76, 73, 'nerbisDres'));
-	console.log("this.bodies: "+this.bodies);
+  this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 'rudydres'));
+  this.bodies = this.bodies.concat(new Player(this, 65, 68, 87, 'lysyblokers'));
+  this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 'nerbisDres'));
   var self = this;
   var tick = function() {
    self.update();
-   self.draw(screen, gameSize);
+   self.draw(screen);
    requestAnimationFrame(tick);
   };
   tick();
@@ -79,27 +87,27 @@ Game.prototype = {
 		}
 	},
   
-  draw: function(screen, gameSize) {
+  draw: function(screen) {
+   document.getElementById('game').style.top = Math.max(0, (document.body.clientHeight - 700) / 2);
+   document.getElementById('game').style.left = Math.max(0, (document.body.clientWidth - 1600) / 2);
+   clientWidth = document.body.clientWidth;
+   if(clientWidth < 1600) {
+    window.scrollTo(Math.min(this.bodies[0].center.x + 75 - clientWidth / 2, 1600 - clientWidth), 1000);
+   }
    for (var i = 0; i < this.bodies.length; i++) {
-    var rudydres = document.getElementById(this.bodies[i].id);
-    var rudydresimage = document.getElementById(this.bodies[i].id + 'image');
-    rudydres.style.left = this.bodies[i].center.x + 'px';
-    rudydres.style.top = 570 - this.bodies[i].jump + 'px';
-    
-    rudydres.style.transform = 'scaleX(' + this.bodies[i].scaleX + ')';
-    rudydresimage.style.marginLeft = -((Math.floor(this.bodies[i].anim / 5) % 8) * 150) + 'px';
+    this.bodies[i].draw();
    }
   }
  };
 
- var Player = function(game, gameSize, leftKey, rightKey, upKey, id) {
+ var Player = function(game, leftKey, rightKey, upKey, id) {
   this.id = id;
   this.anim = 0;
   this.game = game;
   this.scaleX = 1;
   this.jump = 0;
   this.jumpstart = 0;
-  this.center = { x: Math.floor((Math.random() * (gameSize.x - 40)) + 20) };
+  this.center = { x: Math.floor((Math.random() * (1400)) + 100) };
   this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
  };
  Player.prototype = {
@@ -133,6 +141,15 @@ Game.prototype = {
       this.jump = x * x / -625 + 4 * x / 5;
     }
    }
+  },
+  draw: function() {
+    var rudydres = document.getElementById(this.id);
+    var rudydresimage = document.getElementById(this.id + 'image');
+    rudydres.style.left = this.center.x + 'px';
+    rudydres.style.top = 500 - this.jump + 'px';
+    
+    rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
+    rudydresimage.style.marginLeft = -((Math.floor(this.anim / 5) % 8) * 150) + 'px';
   }
  };
 
@@ -155,5 +172,8 @@ Game.prototype = {
  };
 
  window.addEventListener('load', function() { new Game(); });
+ sound = document.getElementById("ambient");
+          sound.load();
+          sound.play();
 })();
 </script>
