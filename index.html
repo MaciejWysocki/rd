@@ -3,12 +3,22 @@
     <head>
         <title>Rudy Dres</title>
         <link rel='shortcut icon' type='image/x-icon' href='rudydres.ico' />
+	<meta property="og:image" content="http://www.strony.toya.net.pl/~maczo/rd/bierzto.png" />
         <style>
             body {
+                background-color: #000;
+                margin: 0;
+                overflow: hidden;
+            }
+
+            #game {
+                width: 1600px;
+                height: 700px;
                 background-image: url("tlo.png");
+                background-position: left bottom;
                 background-repeat: no-repeat;
                 background-size: 100% auto;
-                overflow: hidden;
+                position: absolute;
             }
 
             .dres {
@@ -23,16 +33,20 @@
         </style>
     </head>
     <body>
-        <div id="rudydres" class="dres">
-            <img id="rudydresimage" src="rudydres.png" />
-            <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
-        </div>
-        <div id="lysyblokers" class="dres">
-            <img id="lysyblokersimage" src="lysyblokers.png" />
-            <audio id="lysyblokerssound" src="rudydres2-hop.mp3"></audio>
-        </div>
-        <div id="nerbisDres" class="dres">
-            <img id="nerbisDresimage" src="nerbisDres.png" />
+        <div id="game">
+            <audio id="ambient" src="ambient.mp3"></audio>
+            <div id="rudydres" class="dres">
+                <img id="rudydresimage" src="rudydres.png" />
+                <audio id="rudydressound" src="rudydres-hop.mp3"></audio>
+            </div>
+            <div id="lysyblokers" class="dres">
+                <img id="lysyblokersimage" src="lysyblokers.png" />
+                <audio id="lysyblokerssound" src="rudydres2-hop.mp3"></audio>
+            </div>
+            <div id="nerbisDres" class="dres">
+                <img id="nerbisDresimage" src="nerbisDres.png" />
+                <audio id="nerbisDressound" src="nerbisDres-hop.mp3"></audio>
+            </div>
         </div>
     </body>
 </html>
