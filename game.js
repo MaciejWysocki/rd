@@ -1,10 +1,9 @@
-﻿;
-(function() {
+﻿(function() {
     var Game = function() {
         this.gameSize = { x: document.body.offsetWidth - 150 }; // Doesn't work when resizing window. Should be static?
         this.bodies = [];
         this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 'rudydres'));
-        this.bodies = this.bodies.concat(new Player(this, 65, 68, 87, 'lysyblokers'));
+        this.bodies = this.bodies.concat(new Enemy(this, 'lysyblokers'));
         this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 'nerbisDres'));
         console.log("this.bodies: " + this.bodies);
         var self = this;
@@ -52,7 +51,7 @@
             }
         }
     };
-
+    
     var Player = function(game, leftKey, rightKey, upKey, id) {
         this.id = id;
         this.anim = 0;
@@ -94,6 +93,24 @@
                     this.jump = x * x / -625 + 4 * x / 5;
                 }
             }
+        }
+    };
+
+    var Enemy = function(game, id) {
+        this.id = id;
+        this.anim = 0;
+        this.game = game;
+        this.scaleX = 1;
+        this.center = { x: Math.floor((Math.random() * (this.game.gameSize.x)) + 20) };
+    };
+    Enemy.prototype = {
+        update: function () {
+            /* Move 3px in direction indicated by scaleX */
+            this.center.x += 3 * this.scaleX;
+            this.anim++;
+            /* When character is reaching the end of the game screen, change its move direction */
+            if ((this.center.x < 0 && this.scaleX < 0) || (this.center.x > this.game.gameSize.x && this.scaleX > 0))
+                this.scaleX *= -1;
         }
     };
 
