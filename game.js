@@ -2,9 +2,9 @@
     var Game = function() {
         this.gameSize = { x: 1600, y: 700 };
         this.bodies = [];
-        this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 'rudydres'));
+        this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 16, 'rudydres'));
         this.bodies = this.bodies.concat(new Enemy(this, 'lysyblokers'));
-        this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 'nerbisDres'));
+        this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 89, 'nerbisDres'));
         var self = this;
         var tick = function() {
             self.update();
@@ -51,29 +51,48 @@
         }
     };
     
-    var Player = function(game, leftKey, rightKey, upKey, id) {
+    var Player = function(game, leftKey, rightKey, upKey, punchKey, id) {
         this.id = id;
         this.anim = 0;
+        this.animType = "walk";
         this.game = game;
         this.scaleX = 1;
         this.jump = 0;
         this.jumpstart = 0;
         this.center = { x: Math.floor((Math.random() * (1400)) + 100) };
-        this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
+        this.keys = { left: leftKey, right: rightKey, up: upKey, punch: punchKey };
+        this.keyboarder = new Keyboarder();
     };
     Player.prototype = {
-        update: function() {
-            // If left cursor key is down...
-            if (this.keyboarder.isLeftKeyDown() && this.center.x > 0) {
+		update : function() {
+			if (this.keyboarder.isKeyDown(this.keys.punch)) {
+				if (this.animType != "punch") {
+					this.anim = 0;
+					this.animType = "punch";
+					punchSoundMiss = document.getElementById("punchSoundMiss");
+                    if (punchSoundMiss) {
+                        punchSoundMiss.load();
+                        punchSoundMiss.play();
+                    }
+				} else if (this.anim < 15) {
+					this.anim+=3;
+				}
+    		} else if (this.keyboarder.isKeyDown(this.keys.left) && this.center.x > 0) {
+    			this.animType = "walk";
                 this.center.x -= 3;
                 this.anim++;
                 this.scaleX = -1;
-            } else if (this.keyboarder.isRightKeyDown() && this.center.x < (this.game.gameSize.x - 150)) {
+            } else if (this.keyboarder.isKeyDown(this.keys.right) && this.center.x < (this.game.gameSize.x - 150)) {
+    			this.animType = "walk";
                 this.center.x += 3;
                 this.anim++;
                 this.scaleX = 1;
+            } else {
+            	this.animType = "walk";
+            	this.anim = 0;
             }
-            if (this.keyboarder.isUpKeyDown()) {
+            
+            if (this.keyboarder.isKeyDown(this.keys.up)) {
                 if (this.jump == 0) {
                     this.jump = 1;
                     this.jumpstart = new Date().getTime();
@@ -101,6 +120,8 @@
     
             rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
             rudydresimage.style.marginLeft = -((Math.floor(this.anim / 5) % 8) * 150) + 'px';
+            if(this.animType === "walk") { rudydresimage.style.marginTop = null; }
+            else if (this.animType === "punch") { rudydresimage.style.marginTop = '-150px'; }
         }
     };
 
@@ -131,21 +152,12 @@
         }
     };
 
-    var Keyboarder = function(leftKey, rightKey, upKey) {
-        this.leftKey = leftKey;
-        this.rightKey = rightKey;
-        this.upKey = upKey;
+    var Keyboarder = function() {
         var keyState = {};
         window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
         window.addEventListener('keyup', function(e) { keyState[e.keyCode] = false; });
-        this.isLeftKeyDown = function() {
-            return keyState[this.leftKey] === true;
-        };
-        this.isRightKeyDown = function() {
-            return keyState[this.rightKey] === true;
-        };
-        this.isUpKeyDown = function() {
-            return keyState[this.upKey] === true;
+        this.isKeyDown = function(key) {
+        	return keyState[key] === true;
         };
     };
 
