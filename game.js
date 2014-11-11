@@ -1,15 +1,15 @@
 ﻿(function() {
     var Game = function() {
-        this.gameSize = { x: document.body.offsetWidth - 150 }; // Doesn't work when resizing window. Should be static?
+        this.size = { x: 1600, y: 700 };
         this.bodies = [];
         this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 16, 'rudydres'));
         this.bodies = this.bodies.concat(new Enemy(this, 'lysyblokers'));
         this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 89, 'nerbisDres'));
-	this.punchIter = 0;
+	    this.punchIter = 0;
         var self = this;
         var tick = function() {
             self.update();
-            self.draw(screen, self.gameSize);
+            self.draw();
             requestAnimationFrame(tick);
         };
         tick();
@@ -39,7 +39,13 @@
             }
         },
 
-        draw: function(screen, gameSize) {
+        draw: function() {
+            document.getElementById('game').style.top = Math.max(0, (document.body.clientHeight - this.size.y) / 2);
+            document.getElementById('game').style.left = Math.max(0, (document.body.clientWidth - this.size.x) / 2);
+            clientWidth = document.body.clientWidth;
+            if(clientWidth < this.size.x) {
+                window.scrollTo(Math.min(this.bodies[0].center.x + 75 - clientWidth / 2, this.size.x - clientWidth), this.size.x);
+            }
             for (var i = 0; i < this.bodies.length; i++) {
                 var rudydres = document.getElementById(this.bodies[i].id);
                 var rudydresimage = document.getElementById(this.bodies[i].id + 'image');
@@ -82,7 +88,7 @@
                 this.center.x -= 3;
                 this.anim++;
                 this.scaleX = -1;
-            } else if (this.keyboarder.isKeyDown(this.keys.right) && this.center.x < (this.game.gameSize.x - 150)) {
+            } else if (this.keyboarder.isKeyDown(this.keys.right) && this.center.x < (this.game.size.x - 150)) {
     			this.animType = "walk";
                 this.center.x += 3;
                 this.anim++;
@@ -130,7 +136,7 @@
         this.anim = 0;
         this.game = game;
         this.scaleX = 1;
-        this.center = { x: Math.floor((Math.random() * (this.game.gameSize.x)) + 20) };
+        this.center = { x: Math.floor((Math.random() * (this.game.size.x)) + 20) };
     };
     Enemy.prototype = {
         update: function () {
@@ -138,7 +144,7 @@
             this.center.x += 3 * this.scaleX;
             this.anim++;
             /* When character is reaching the end of the game screen, change its move direction */
-            if ((this.center.x < 0 && this.scaleX < 0) || (this.center.x > this.game.gameSize.x && this.scaleX > 0))
+            if ((this.center.x < 200 && this.scaleX < 0) || (this.center.x > (this.game.size.x - 200) && this.scaleX > 0))
                 this.scaleX *= -1;
         }
     };
