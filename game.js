@@ -5,6 +5,7 @@
         this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 16, 'rudydres'));
         this.bodies = this.bodies.concat(new Enemy(this, 'lysyblokers'));
         this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 89, 'nerbisDres'));
+	this.punchIter = 0;
         var self = this;
         var tick = function() {
             self.update();
@@ -69,13 +70,13 @@
 				if (this.animType != "punch") {
 					this.anim = 0;
 					this.animType = "punch";
-					punchSoundMiss = document.getElementById("punchSoundMiss");
+					punchSoundMiss = document.getElementById("punchSoundMiss" + (this.game.punchIter++ % 2));
                     if (punchSoundMiss) {
                         punchSoundMiss.load();
                         punchSoundMiss.play();
                     }
 				} else if (this.anim < 15) {
-					this.anim+=3;
+					this.anim+=5;
 				}
     		} else if (this.keyboarder.isKeyDown(this.keys.left) && this.center.x > 0) {
     			this.animType = "walk";
