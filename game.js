@@ -5,7 +5,7 @@
         this.bodies = this.bodies.concat(new Player(this, 37, 39, 38, 16, 'rudydres'));
         this.bodies = this.bodies.concat(new Enemy(this, 'lysyblokers'));
         this.bodies = this.bodies.concat(new Player(this, 74, 76, 73, 89, 'nerbisDres'));
-	    this.punchIter = 0;
+        this.punchIter = 0;
         var self = this;
         var tick = function() {
             self.update();
@@ -43,8 +43,8 @@
             document.getElementById('game').style.top = Math.max(0, (document.body.clientHeight - this.size.y) / 2);
             document.getElementById('game').style.left = Math.max(0, (document.body.clientWidth - this.size.x) / 2);
             clientWidth = document.body.clientWidth;
-            if(clientWidth < this.size.x) {
-                window.scrollTo(Math.min(this.bodies[0].center.x + 75 - clientWidth / 2, this.size.x - clientWidth), this.size.x);
+            if (clientWidth < this.gameSize.x) {
+                window.scrollTo(Math.min(this.bodies[0].center.x + 75 - clientWidth / 2, this.gameSize.x - clientWidth), this.gameSize.x);
             }
             for (var i = 0; i < this.bodies.length; i++) {
                 var rudydres = document.getElementById(this.bodies[i].id);
@@ -57,7 +57,7 @@
             }
         }
     };
-    
+
     var Player = function(game, leftKey, rightKey, upKey, punchKey, id) {
         this.id = id;
         this.anim = 0;
@@ -70,54 +70,58 @@
         this.keyboarder = new Keyboarder(leftKey, rightKey, upKey);
     };
     Player.prototype = {
-		update : function() {
-		    if (this.keyboarder.isKeyDown(this.keys.punch)) {
-				if (this.animType != "punch") {
-					this.anim = 0;
-					this.animType = "punch";
-				    /* Punch other character if it's within the punch range */
-				    var hit = false;
-					for (var i = 0; i < this.game.bodies.length; i++) {
-					    var other = this.game.bodies[i];
-					    if (this === other)
-					        continue;
+        update: function() {
+            var punchSound;
+            if (this.keyboarder.isKeyDown(this.keys.punch)) {
+                if (this.animType != "punch") {
+                    this.anim = 0;
+                    this.animType = "punch";
+                    /* This is actually a whoosh sound and will always be played, despite if punch hits or misses. 
+                     * TODO: change name from punchSoundMiss to punchSoundWhoosh or something. */
+                    punchSound = document.getElementById("punchSoundMiss" + (this.game.punchIter++ % 2));
 
-					    var thisDres = this.center.x * this.scaleX;
-					    var otherDres = other.center.x * this.scaleX;
-					    if (thisDres < otherDres && thisDres + 60 > otherDres)
-                        {
-					        other.center.x += 100 * this.scaleX;
-					        hit = true;
-					    }
-					}
-				    var punchSound;
-					if (hit === true)
-					    punchSound = document.getElementById("punchSoundHit");
-				    else
-				        punchSound = document.getElementById("punchSoundMiss" + (this.game.punchIter++ % 2));
-					
-					if (punchSound) {
-					    punchSound.load();
-					    punchSound.play();
-					}
-				} else if (this.anim < 15) {
-					this.anim+=5;
-				}
-    		} else if (this.keyboarder.isKeyDown(this.keys.left) && this.center.x > 0) {
-    			this.animType = "walk";
+                } else if (this.anim < 15) {
+                    this.anim += 5;
+                    /* Punch other character if it's within the punch range. We only punch when the arm is stretched
+                     * (this.anim === 10 ?) */
+                    var hit = false;
+                    if (this.anim === 10)
+                    /* Check if any other character is within punch range */
+                        for (var i = 0; i < this.game.bodies.length; i++) {
+                            var otherDres = this.game.bodies[i];
+                            if (this === otherDres)
+                                continue;
+
+                            var thisDresPosition = this.center.x * this.scaleX;
+                            var otherDresPosition = otherDres.center.x * this.scaleX;
+                            /* If the otherDres is within punch range, knock him 100 pixels back */
+                            if (thisDresPosition < otherDresPosition && thisDresPosition + 60 > otherDresPosition) {
+                                otherDres.center.x += 100 * this.scaleX;
+                                hit = true;
+                            }
+                        }
+                    if (hit === true)
+                        punchSound = document.getElementById("punchSoundHit");
+                }
+                if (punchSound) {
+                    punchSound.load();
+                    punchSound.play();
+                }
+            } else if (this.keyboarder.isKeyDown(this.keys.left) && this.center.x > 0) {
+                this.animType = "walk";
                 this.center.x -= 3;
                 this.anim++;
                 this.scaleX = -1;
-            } else if (this.keyboarder.isKeyDown(this.keys.right) && this.center.x < (this.game.size.x - 150)) {
-    			this.animType = "walk";
+            } else if (this.keyboarder.isKeyDown(this.keys.right) && this.center.x < (this.game.gameSize.x - 150)) {
+                this.animType = "walk";
                 this.center.x += 3;
                 this.anim++;
                 this.scaleX = 1;
             } else {
-            	this.animType = "walk";
-            	this.anim = 0;
+                this.animType = "walk";
+                this.anim = 0;
             }
-            
+
             if (this.keyboarder.isKeyDown(this.keys.up)) {
                 if (this.jump == 0) {
                     this.jump = 1;
@@ -143,11 +147,14 @@
             var rudydresimage = document.getElementById(this.id + 'image');
             rudydres.style.left = this.center.x + 'px';
             rudydres.style.top = 500 - this.jump + 'px';
-    
+
             rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
             rudydresimage.style.marginLeft = -((Math.floor(this.anim / 5) % 8) * 150) + 'px';
-            if(this.animType === "walk") { rudydresimage.style.marginTop = null; }
-            else if (this.animType === "punch") { rudydresimage.style.marginTop = '-150px'; }
+            if (this.animType === "walk") {
+                rudydresimage.style.marginTop = null;
+            } else if (this.animType === "punch") {
+                rudydresimage.style.marginTop = '-150px';
+            }
         }
     };
 
@@ -159,13 +166,22 @@
         this.center = { x: Math.floor((Math.random() * (this.game.size.x)) + 20) };
     };
     Enemy.prototype = {
-        update: function () {
+        update: function() {
             /* Move 3px in direction indicated by scaleX */
             this.center.x += 3 * this.scaleX;
             this.anim++;
             /* When character is reaching the end of the game screen, change its move direction */
             if ((this.center.x < 200 && this.scaleX < 0) || (this.center.x > (this.game.size.x - 200) && this.scaleX > 0))
                 this.scaleX *= -1;
+        },
+        draw: function() {
+            var enemy = document.getElementById(this.id);
+            var enemyimage = document.getElementById(this.id + 'image');
+            enemy.style.left = this.center.x + 'px';
+            enemy.style.top = '500px';
+
+            enemy.style.transform = 'scaleX(' + this.scaleX + ')';
+            enemyimage.style.marginLeft = -((Math.floor(this.anim / 5) % 8) * 150) + 'px';
         }
     };
 
@@ -174,9 +190,12 @@
         window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
         window.addEventListener('keyup', function(e) { keyState[e.keyCode] = false; });
         this.isKeyDown = function(key) {
-        	return keyState[key] === true;
+            return keyState[key] === true;
         };
     };
 
     window.addEventListener('load', function() { new Game(); });
+    sound = document.getElementById("ambient");
+    sound.load();
+    sound.play();
 })();
