@@ -71,15 +71,35 @@
     };
     Player.prototype = {
 		update : function() {
-			if (this.keyboarder.isKeyDown(this.keys.punch)) {
+		    if (this.keyboarder.isKeyDown(this.keys.punch)) {
 				if (this.animType != "punch") {
 					this.anim = 0;
 					this.animType = "punch";
-					punchSoundMiss = document.getElementById("punchSoundMiss" + (this.game.punchIter++ % 2));
-                    if (punchSoundMiss) {
-                        punchSoundMiss.load();
-                        punchSoundMiss.play();
-                    }
+				    /* Punch other character if it's within the punch range */
+				    var hit = false;
+					for (var i = 0; i < this.game.bodies.length; i++) {
+					    var other = this.game.bodies[i];
+					    if (this === other)
+					        continue;
+
+					    var thisDres = this.center.x * this.scaleX;
+					    var otherDres = other.center.x * this.scaleX;
+					    if (thisDres < otherDres && thisDres + 60 > otherDres)
+                        {
+					        other.center.x += 100 * this.scaleX;
+					        hit = true;
+					    }
+					}
+				    var punchSound;
+					if (hit === true)
+					    punchSound = document.getElementById("punchSoundHit");
+				    else
+				        punchSound = document.getElementById("punchSoundMiss" + (this.game.punchIter++ % 2));
+					
+					if (punchSound) {
+					    punchSound.load();
+					    punchSound.play();
+					}
 				} else if (this.anim < 15) {
 					this.anim+=5;
 				}
