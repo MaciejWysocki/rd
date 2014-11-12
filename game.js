@@ -13,11 +13,42 @@
         this.items = [];
 
         // Bootload
-        this.players = this.players.concat(new Player('rudydres', 50, 500, 'rudydres.png', new Mask(100, 500, 150, 650), new Keys(37, 39, 38, 16, 13, 191, 222)));
-        this.players = this.players.concat(new Player('rudydres2', 150, 500, 'rudydres2.png', new Mask(200, 500, 350, 650), new Keys(65, 68, 87, 81, 49, 50, 51)));
-
-        this.enemies = this.enemies.concat(new Enemy('lysyblokers', 500, 500, 'lysyblokers.png', new Mask(490, 500, 510, 650)));
-        this.enemies = this.enemies.concat(new Enemy('nerbisDres', 600, 500, 'nerbisDres.png', new Mask(590, 500, 610, 650)));
+        /* Players */
+        this.players = this.players.concat(new Player(
+            'rudydres',
+            50,
+            500,
+            'rudydres.png',
+            new Mask(100, 500, 150, 650),
+            100,    /* statStrength */
+            70,     /* statRange */
+            new Keys(37, 39, 38, 16, 13, 191, 222)));
+        this.players = this.players.concat(new Player(
+            'rudydres2',
+            150,
+            500,
+            'rudydres2.png',
+            new Mask(200, 500, 350, 650),
+            100,    /* statStrength */
+            70,     /* statRange */
+            new Keys(65, 68, 87, 81, 49, 50, 51)));
+        /* Enemies */
+        this.enemies = this.enemies.concat(new Enemy(
+            'lysyblokers',
+            500,
+            500,
+            'lysyblokers.png',
+            new Mask(490, 500, 510, 650),
+            70,    /* statStrength */
+            60     /* statRange */));
+        this.enemies = this.enemies.concat(new Enemy(
+            'nerbisDres',
+            600,
+            500,
+            'nerbisDres.png',
+            new Mask(590, 500, 610, 650),
+            110,   /* statStrength */
+            50     /* statRange */));
 
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
@@ -54,7 +85,7 @@
                 this.players[i].update(this.players.concat(this.enemies));
             }
             for (var i = 0; i < this.enemies.length; i++) {
-                this.enemies[i].update();
+                this.enemies[i].update(this.players);
             }
             for (var i = 0; i < this.items.length; i++) {
                 this.items[i].update();
@@ -183,17 +214,34 @@
         }
     };
 
-    // NPC - simple walking motherfucker
-    var Enemy = function(name, x, y, image, mask) {
+
+    // TODO Add statHitSpeed, statWalkSpeed
+    // Base class for Player and Enemy
+    var Character = function(name, x, y, image, mask, statStrength, statRange) {
         // call super constructor
         Element.call(this, name, x, y, image, mask);
+
+        /* Assign stats */
+        this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
+        this.statRange = statRange;         /* Defines range of the punches */
+    };
+    // TODO Caleb: not sure if this is correct way to inherit the prototype, and most likely it's not supported in Opera
+    // TODO (see http://javascript.info/tutorial/inheritance)
+    Character.prototype = Element;
+
+    // NPC - simple walking motherfucker
+    var Enemy = function(name, x, y, image, mask, statStrength, statRange) {
+        // call super constructor
+        Character.call(this, name, x, y, image, mask, statStrength, statRange);
 
         // initialization
         this.state = 'walk';
         document.getElementById(this.name).setAttribute('class', 'element dres');
     };
     Enemy.prototype = {
-        update: function() {
+        update: function(players) {
+            // TODO add detection of players in range and punching them.
+
             /* Move 3px in direction indicated by scaleX */
             this.x += 3 * this.scaleX;
             this.animationFrame++;
@@ -214,8 +262,8 @@
     };
 
     // Player is strearable element with health and items.
-    var Player = function(name, x, y, image, mask, keys) {
-        Element.call(this, name, x, y, image, mask);
+    var Player = function(name, x, y, image, mask, statStrength, statRange, keys) {
+        Character.call(this, name, x, y, image, mask, statStrength, statRange);
         this.keys = keys;
         this.jump = 0;
         this.jumpStart = 0;
@@ -250,8 +298,8 @@
                             var thisDresPosition = this.x * this.scaleX;
                             var otherDresPosition = otherDres.x * this.scaleX;
                             /* If the otherDres is within punch range, knock him 100 pixels back */
-                            if (thisDresPosition < otherDresPosition && thisDresPosition + 60 > otherDresPosition) {
-                                otherDres.x += 100 * this.scaleX;
+                            if (thisDresPosition < otherDresPosition && thisDresPosition + this.statRange > otherDresPosition) {
+                                otherDres.x += this.statStrength * this.scaleX;
                                 /* Turn the otherDres back after he has been hit. */
                                 otherDres.scaleX = this.scaleX;
                                 hit = true;
