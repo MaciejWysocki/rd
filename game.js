@@ -305,6 +305,7 @@
         this.keys = keys;
         this.jump = 0;
         this.jumpStart = 0;
+        this.punchRight = 1;
 
         // initialization
         this.state = 'walk';
@@ -318,6 +319,7 @@
             if (this.state != "punch") {
                 this.animationFrame = 0;
                 this.state = "punch";
+                this.punchRight = this.punchRight < 1 ? 1 : 0;
                 /* This is actually a whoosh sound and will always be played, despite if punch hits or misses. 
                      * TODO: change name from punchSoundMiss to punchSoundWhoosh or something. */
                 punchSound = document.getElementById("punchSoundMiss" + (punchIter++ % 2));
@@ -388,10 +390,11 @@
         rudydres.style.top = this.y - this.jump + 'px';
 
         rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
-        rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
         if (this.state === "walk") {
+        	rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
             rudydresimage.style.marginTop = null;
         } else if (this.state === "punch") {
+        	rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) - 600 * this.punchRight + 'px';
             rudydresimage.style.marginTop = '-150px';
         }
     };
