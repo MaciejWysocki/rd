@@ -225,9 +225,15 @@
         this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
         this.statRange = statRange;         /* Defines range of the punches */
     };
-    // TODO Caleb: not sure if this is correct way to inherit the prototype, and most likely it's not supported in Opera
-    // TODO (see http://javascript.info/tutorial/inheritance)
-    Character.prototype = Element;
+    // TODO Caleb: not sure if this is correct way to inherit the prototype
+    Character.prototype = new Element();
+    Character.prototype.constructor = Character;
+    // Checks if otherDres (Element) is within punching range of this Character
+    Character.prototype.isInPunchRange = function(otherDres) {
+        var thisDresPosition = this.x * this.scaleX;
+        var otherDresPosition = otherDres.x * this.scaleX;
+        return (thisDresPosition < otherDresPosition && thisDresPosition + this.statRange > otherDresPosition);
+    };
 
     // NPC - simple walking motherfucker
     var Enemy = function(name, x, y, image, mask, statStrength, statRange) {
@@ -238,10 +244,25 @@
         this.state = 'walk';
         document.getElementById(this.name).setAttribute('class', 'element dres');
     };
-    Enemy.prototype = {
-        update: function(players) {
-            // TODO add detection of players in range and punching them.
+    Enemy.prototype = new Character();
+    Enemy.prototype.constructor = Enemy;
+    Enemy.prototype.update = function(players) {
+        var hit = false;
+        /* Detect if any players are in punch range */
+        for (var i = 0; i < players.length; i++) {
+            var otherDres = players[i];
 
+            /* If the otherDres is within punch range, knock him 100 pixels back */
+            if (this.isInPunchRange(otherDres)) {
+                otherDres.x += this.statStrength * this.scaleX;
+                /* Turn the otherDres back after he has been hit. */
+                otherDres.scaleX = this.scaleX;
+                hit = true;
+            }
+        }
+
+        /* If no players were hit, just keep on walking */
+        if (!hit) {
             /* Move 3px in direction indicated by scaleX */
             this.x += 3 * this.scaleX;
             this.animationFrame++;
@@ -249,16 +270,16 @@
             // TODO change to colision with Level masks
             if ((this.x < 200 && this.scaleX < 0) || (this.x > 1250 && this.scaleX > 0))
                 this.scaleX *= -1;
-        },
-        render: function() {
-            var enemy = document.getElementById(this.name);
-            var enemyimage = document.getElementById(this.name + '-image');
-            enemy.style.left = this.x + 'px';
-            enemy.style.top = this.y + 'px';
-
-            enemy.style.transform = 'scaleX(' + this.scaleX + ')';
-            enemyimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
         }
+    };
+    Enemy.prototype.render = function() {
+        var enemy = document.getElementById(this.name);
+        var enemyimage = document.getElementById(this.name + '-image');
+        enemy.style.left = this.x + 'px';
+        enemy.style.top = this.y + 'px';
+
+        enemy.style.transform = 'scaleX(' + this.scaleX + ')';
+        enemyimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
     };
 
     // Player is strearable element with health and items.
@@ -272,93 +293,91 @@
         this.state = 'walk';
         document.getElementById(this.name).setAttribute('class', 'element dres');
     };
-    Player.prototype = {
-        update: function(bodies) {
-            var punchSound;
-            if (this.keys.isKeyDown(this.keys.punch)) {
-                if (this.state != "punch") {
-                    this.animationFrame = 0;
-                    this.state = "punch";
-                    /* This is actually a whoosh sound and will always be played, despite if punch hits or misses. 
-                     * TODO: change name from punchSoundMiss to punchSoundWhoosh or something. */
-                    punchSound = document.getElementById("punchSoundMiss" + (punchIter++ % 2));
-
-                } else if (this.animationFrame < 15) {
-                    this.animationFrame += 5;
-                    /* Punch other character if it's within the punch range. We only punch when the arm is stretched
-                     * (this.anim === 10 ?) */
-                    var hit = false;
-                    if (this.animationFrame === 10)
-                    /* Check if any other character is within punch range */
-                        for (var i = 0; i < bodies.length; i++) {
-                            var otherDres = bodies[i];
-                            if (this === otherDres)
-                                continue;
-
-                            var thisDresPosition = this.x * this.scaleX;
-                            var otherDresPosition = otherDres.x * this.scaleX;
-                            /* If the otherDres is within punch range, knock him 100 pixels back */
-                            if (thisDresPosition < otherDresPosition && thisDresPosition + this.statRange > otherDresPosition) {
-                                otherDres.x += this.statStrength * this.scaleX;
-                                /* Turn the otherDres back after he has been hit. */
-                                otherDres.scaleX = this.scaleX;
-                                hit = true;
-                            }
-                        }
-                    if (hit === true)
-                        punchSound = document.getElementById("punchSoundHit");
-                }
-                if (punchSound) {
-                    punchSound.load();
-                    punchSound.play();
-                }
-            } else if (this.keys.isKeyDown(this.keys.left) && this.x > 0) {
-                // TODO change those x limits to colision model based on Level masks.
-                this.state = "walk";
-                this.x -= 3;
-                this.animationFrame++;
-                this.scaleX = -1;
-            } else if (this.keys.isKeyDown(this.keys.right) && this.x < 1450) {
-                this.state = "walk";
-                this.x += 3;
-                this.animationFrame++;
-                this.scaleX = 1;
-            } else {
-                this.state = "walk";
+    Player.prototype = new Character();
+    Player.prototype.constructor = Player;
+    Player.prototype.update = function(bodies) {
+        var punchSound;
+        if (this.keys.isKeyDown(this.keys.punch)) {
+            if (this.state != "punch") {
                 this.animationFrame = 0;
-            }
+                this.state = "punch";
+                /* This is actually a whoosh sound and will always be played, despite if punch hits or misses. 
+                     * TODO: change name from punchSoundMiss to punchSoundWhoosh or something. */
+                punchSound = document.getElementById("punchSoundMiss" + (punchIter++ % 2));
 
-            if (this.keys.isKeyDown(this.keys.jump) && this.jump === 0) {
-                this.jump = 1;
-                this.jumpStart = new Date().getTime();
-                sound = document.getElementById(this.name + "JumpSound");
-                if (sound) {
-                    sound.load();
-                    sound.play();
-                }
-            }
-            if (this.jump < 0) {
-                this.jump = 0;
-            } else if (this.jump > 0) {
-                var x = new Date().getTime() - this.jumpStart;
-                if (x > 0) {
-                    this.jump = x * x / -625 + 4 * x / 5;
-                }
-            }
-        },
-        render: function() {
-            var rudydres = document.getElementById(this.name);
-            var rudydresimage = document.getElementById(this.name + '-image');
-            rudydres.style.left = this.x + 'px';
-            rudydres.style.top = this.y - this.jump + 'px';
+            } else if (this.animationFrame < 15) {
+                this.animationFrame += 5;
+                /* Punch other character if it's within the punch range. We only punch when the arm is stretched
+                     * (this.anim === 10 ?) */
+                var hit = false;
+                if (this.animationFrame === 10)
+                /* Check if any other character is within punch range */
+                    for (var i = 0; i < bodies.length; i++) {
+                        var otherDres = bodies[i];
+                        if (this === otherDres)
+                            continue;
 
-            rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
-            rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
-            if (this.state === "walk") {
-                rudydresimage.style.marginTop = null;
-            } else if (this.state === "punch") {
-                rudydresimage.style.marginTop = '-150px';
+                        /* If the otherDres is within punch range, knock him 100 pixels back */
+                        if (this.isInPunchRange(otherDres)) {
+                            otherDres.x += this.statStrength * this.scaleX;
+                            /* Turn the otherDres back after he has been hit. */
+                            otherDres.scaleX = this.scaleX;
+                            hit = true;
+                        }
+                    }
+                if (hit === true)
+                    punchSound = document.getElementById("punchSoundHit");
             }
+            if (punchSound) {
+                punchSound.load();
+                punchSound.play();
+            }
+        } else if (this.keys.isKeyDown(this.keys.left) && this.x > 0) {
+            // TODO change those x limits to colision model based on Level masks.
+            this.state = "walk";
+            this.x -= 3;
+            this.animationFrame++;
+            this.scaleX = -1;
+        } else if (this.keys.isKeyDown(this.keys.right) && this.x < 1450) {
+            this.state = "walk";
+            this.x += 3;
+            this.animationFrame++;
+            this.scaleX = 1;
+        } else {
+            this.state = "walk";
+            this.animationFrame = 0;
+        }
+
+        if (this.keys.isKeyDown(this.keys.jump) && this.jump === 0) {
+            this.jump = 1;
+            this.jumpStart = new Date().getTime();
+            sound = document.getElementById(this.name + "JumpSound");
+            if (sound) {
+                sound.load();
+                sound.play();
+            }
+        }
+        if (this.jump < 0) {
+            this.jump = 0;
+        } else if (this.jump > 0) {
+            var x = new Date().getTime() - this.jumpStart;
+            if (x > 0) {
+                this.jump = x * x / -625 + 4 * x / 5;
+            }
+        }
+    };
+    Player.prototype.render = function() {
+        var rudydres = document.getElementById(this.name);
+        var rudydresimage = document.getElementById(this.name + '-image');
+        rudydres.style.left = this.x + 'px';
+        rudydres.style.top = this.y - this.jump + 'px';
+
+        rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
+        rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
+        if (this.state === "walk") {
+            rudydresimage.style.marginTop = null;
+        } else if (this.state === "punch") {
+            rudydresimage.style.marginTop = '-150px';
         }
     };
 
