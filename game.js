@@ -1,24 +1,24 @@
 ﻿(function() {
-	// Globals
-	var punchIter = 0;
-	
-	// Main class which holds all game elements such as players, enemies and items.
+    // Globals
+    var punchIter = 0;
+
+    // Main class which holds all game elements such as players, enemies and items.
     // Game class runs main game loop (tick). It defines two main steps for each game
-	// loop iterations - update (react on current state and time) and render.
+    // loop iterations - update (react on current state and time) and render.
     var Game = function() {
         this.size = { width: 1600, height: 700 };
         this.level = new Level('tlo.png');
         this.players = [];
         this.enemies = [];
         this.items = [];
-        
+
         // Bootload
         this.players = this.players.concat(new Player('rudydres', 50, 500, 'rudydres.png', new Mask(100, 500, 150, 650), new Keys(37, 39, 38, 16, 13, 191, 222)));
         this.players = this.players.concat(new Player('rudydres2', 150, 500, 'rudydres2.png', new Mask(200, 500, 350, 650), new Keys(65, 68, 87, 81, 49, 50, 51)));
-        
+
         this.enemies = this.enemies.concat(new Enemy('lysyblokers', 500, 500, 'lysyblokers.png', new Mask(490, 500, 510, 650)));
         this.enemies = this.enemies.concat(new Enemy('nerbisDres', 600, 500, 'nerbisDres.png', new Mask(590, 500, 610, 650)));
-        
+
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
         gameDiv.style.height = this.size.height;
@@ -54,20 +54,20 @@
                 this.players[i].update(this.players.concat(this.enemies));
             }
             for (var i = 0; i < this.enemies.length; i++) {
-            	this.enemies[i].update();
+                this.enemies[i].update();
             }
             for (var i = 0; i < this.items.length; i++) {
-            	this.items[i].update();
-            } 
+                this.items[i].update();
+            }
             this.level.update();
         },
 
         render: function() {
-        	var gameDiv = document.getElementById('game');
+            var gameDiv = document.getElementById('game');
             gameDiv.style.top = Math.max(0, (document.body.clientHeight - this.size.height) / 2);
             gameDiv.style.left = Math.max(0, (document.body.clientWidth - this.size.width) / 2);
             clientWidth = document.body.clientWidth;
-            if(clientWidth < this.size.width) {
+            if (clientWidth < this.size.width) {
                 window.scrollTo(Math.min(this.players[0].x + 75 - clientWidth / 2, this.size.width - clientWidth), this.size.width);
             }
             for (var i = 0; i < this.players.length; i++) {
@@ -81,116 +81,116 @@
             }
         },
 
-	    takeItem: function(name) {
-        	for (var i = 0; i < this.items; i++) {
-        		if(this.items[i].name == name) {
-        			var item = this.items[i];
-        			this.items.splice(i, 1);
-        			return item;
-        		}
-        	}
-	    },
+        takeItem: function(name) {
+            for (var i = 0; i < this.items; i++) {
+                if (this.items[i].name == name) {
+                    var item = this.items[i];
+                    this.items.splice(i, 1);
+                    return item;
+                }
+            }
+        },
 
-	    changeLevel: function(level, newX, newY) {
-	    	// remove all items
-	    	for (var i = 0; i < this.items.length; i++) {
-	    		var itemDiv = document.getElementById(this.items[i].name);
-	    		itemDiv.parentNode.removeChild(itemDiv);
+        changeLevel: function(level, newX, newY) {
+            // remove all items
+            for (var i = 0; i < this.items.length; i++) {
+                var itemDiv = document.getElementById(this.items[i].name);
+                itemDiv.parentNode.removeChild(itemDiv);
             }
-	    	this.items = [];
-	    	// remove all enemies
-	    	for (var i = 0; i < this.enemies.length; i++) {
+            this.items = [];
+            // remove all enemies
+            for (var i = 0; i < this.enemies.length; i++) {
                 var enemyDiv = document.getElementById(this.enemies[i].name);
-	    		enemyDiv.parentNode.removeChild(enemyDiv);
+                enemyDiv.parentNode.removeChild(enemyDiv);
             }
-	    	this.enemies = [];
-	    	// move all players
-	    	for (var i = 0; i < this.players.length; i++) {
-	    		var player = this.players[i];
+            this.enemies = [];
+            // move all players
+            for (var i = 0; i < this.players.length; i++) {
+                var player = this.players[i];
                 player.x = newX;
                 player.y = newY;
             }
             // change level and let it render
-	    	this.level = level;
-	    }
+            this.level = level;
+        }
     };
 
     // Level defines background and masks (platforms, walls, etc.) which define where elements can move.
     var Level = function(background) {
-    	this.background = background;
-    	// colision rectangles for elements
-    	this.masks = [];
-    	// doors to other levels
-    	this.doors = [];
-    	
-    	// initialization
-    	this.masks = this.masks.concat(new Mask(0, 650, 1600, 660));
-    	this.masks = this.masks.concat(new Mask(-100, 0, -1, 700));
-    	this.masks = this.masks.concat(new Mask(1600, 0, 1700, 700));
+        this.background = background;
+        // colision rectangles for elements
+        this.masks = [];
+        // doors to other levels
+        this.doors = [];
+
+        // initialization
+        this.masks = this.masks.concat(new Mask(0, 650, 1600, 660));
+        this.masks = this.masks.concat(new Mask(-100, 0, -1, 700));
+        this.masks = this.masks.concat(new Mask(1600, 0, 1700, 700));
     };
     Level.prototype = {
         update: function() {
-    	},
-    	render: function() {
-    		document.getElementById('game').style.backgroundImage = 'url(' + this.background + ')';
-    	}
+        },
+        render: function() {
+            document.getElementById('game').style.backgroundImage = 'url(' + this.background + ')';
+        }
     };
-    
+
     // Masks are invisible collision rectangles which define when elements interact with Levels and other elements.
     var Mask = function(minX, maxX, minY, maxY) {
-    	this.minX = minX;
-    	this.maxX = maxX;
-    	this.minY = minY;
-    	this.maxY = maxY;
+        this.minX = minX;
+        this.maxX = maxX;
+        this.minY = minY;
+        this.maxY = maxY;
     };
-    
+
     // Rectangle area which defines where player can switch the level to the one mapped to one configured by this door.
     var Door = function(mask, level) {
-    	this.mask = mask
-    	this.level = level;
+        this.mask = mask;
+        this.level = level;
     };
-    
+
     // Element is a class for items, laying weapons, effects like blood or explosion. It is also base class for players and enemies.
     var Element = function(name, x, y, image, mask) {
-    	this.name = name;
-    	this.x = x;
-    	this.y = y;
-    	this.image = image;
-    	this.animationFrame = 0;
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.image = image;
+        this.animationFrame = 0;
         this.scaleX = 1;
-    	this.mask = mask;
-    	this.state = 'nothing';
-    	this.stateStart = new Date().getTime();
-    	
-    	// initialization
-    	var img = document.createElement('img');
-    	img.setAttribute('id', this.name + '-image');
-    	img.setAttribute('src', this.image);
-    	
-    	var div = document.createElement('div');
-    	div.setAttribute('id', this.name);
-    	div.setAttribute('class', 'element');
-    	div.style.left = this.x;
-    	div.style.top = this.y;
-    	div.appendChild(img);
-    	
+        this.mask = mask;
+        this.state = 'nothing';
+        this.stateStart = new Date().getTime();
+
+        // initialization
+        var img = document.createElement('img');
+        img.setAttribute('id', this.name + '-image');
+        img.setAttribute('src', this.image);
+
+        var div = document.createElement('div');
+        div.setAttribute('id', this.name);
+        div.setAttribute('class', 'element');
+        div.style.left = this.x;
+        div.style.top = this.y;
+        div.appendChild(img);
+
         document.getElementById('game').appendChild(div);
     };
     Element.prototype = {
         update: function() {
-    	},
-    	render: function() {
-    	}
+        },
+        render: function() {
+        }
     };
-    
+
     // NPC - simple walking motherfucker
     var Enemy = function(name, x, y, image, mask) {
-    	// call super constructor
-    	Element.call(this, name, x, y, image, mask);
-    	
-    	// initialization
-    	this.state = 'walk';
-    	document.getElementById(this.name).setAttribute('class', 'element dres');
+        // call super constructor
+        Element.call(this, name, x, y, image, mask);
+
+        // initialization
+        this.state = 'walk';
+        document.getElementById(this.name).setAttribute('class', 'element dres');
     };
     Enemy.prototype = {
         update: function() {
@@ -212,17 +212,17 @@
             enemyimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
         }
     };
-    
+
     // Player is strearable element with health and items.
     var Player = function(name, x, y, image, mask, keys) {
-    	Element.call(this, name, x, y, image, mask);
-    	this.keys = keys;
-    	this.jump = 0;
+        Element.call(this, name, x, y, image, mask);
+        this.keys = keys;
+        this.jump = 0;
         this.jumpStart = 0;
-    	
-    	// initialization
-    	this.state = 'walk';
-    	document.getElementById(this.name).setAttribute('class', 'element dres');
+
+        // initialization
+        this.state = 'walk';
+        document.getElementById(this.name).setAttribute('class', 'element dres');
     };
     Player.prototype = {
         update: function(bodies) {
@@ -252,7 +252,8 @@
                             /* If the otherDres is within punch range, knock him 100 pixels back */
                             if (thisDresPosition < otherDresPosition && thisDresPosition + 60 > otherDresPosition) {
                                 otherDres.x += 100 * this.scaleX;
-                                otherDres.scaleX *= -1;
+                                /* Turn the otherDres back after he has been hit. */
+                                otherDres.scaleX = this.scaleX;
                                 hit = true;
                             }
                         }
@@ -264,13 +265,13 @@
                     punchSound.play();
                 }
             } else if (this.keys.isKeyDown(this.keys.left) && this.x > 0) {
-            	// TODO change those x limits to colision model based on Level masks.
+                // TODO change those x limits to colision model based on Level masks.
                 this.state = "walk";
                 this.x -= 3;
                 this.animationFrame++;
                 this.scaleX = -1;
             } else if (this.keys.isKeyDown(this.keys.right) && this.x < 1450) {
-    			this.state = "walk";
+                this.state = "walk";
                 this.x += 3;
                 this.animationFrame++;
                 this.scaleX = 1;
@@ -278,24 +279,24 @@
                 this.state = "walk";
                 this.animationFrame = 0;
             }
-						
+
             if (this.keys.isKeyDown(this.keys.jump) && this.jump === 0) {
-				this.jump = 1;
-				this.jumpStart = new Date().getTime();
-				sound = document.getElementById(this.name + "JumpSound");
-				if (sound) {
-					sound.load();
-					sound.play();
-				}
-			}
-			if (this.jump < 0) {
-				this.jump = 0;
-			} else if (this.jump > 0) {
-				var x = new Date().getTime() - this.jumpStart;
-				if (x > 0) {
-					this.jump = x * x / -625 + 4 * x / 5;
-				}
-			}
+                this.jump = 1;
+                this.jumpStart = new Date().getTime();
+                sound = document.getElementById(this.name + "JumpSound");
+                if (sound) {
+                    sound.load();
+                    sound.play();
+                }
+            }
+            if (this.jump < 0) {
+                this.jump = 0;
+            } else if (this.jump > 0) {
+                var x = new Date().getTime() - this.jumpStart;
+                if (x > 0) {
+                    this.jump = x * x / -625 + 4 * x / 5;
+                }
+            }
         },
         render: function() {
             var rudydres = document.getElementById(this.name);
@@ -315,15 +316,15 @@
 
     // Keys class maps keys ascii codes into action names like left, right, punch, etc.
     var Keys = function(left, right, jump, punch, kick, head, itemSwitch) {
-    	this.left = left;
-    	this.right = right;
-    	this.jump = jump;
-    	this.punch = punch;
-    	this.kick = kick;
-    	this.head = head;
-    	this.itemSwitch = itemSwitch;
-    	
-    	// initialization
+        this.left = left;
+        this.right = right;
+        this.jump = jump;
+        this.punch = punch;
+        this.kick = kick;
+        this.head = head;
+        this.itemSwitch = itemSwitch;
+
+        // initialization
         var keyState = {};
         window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
         window.addEventListener('keyup', function(e) { keyState[e.keyCode] = false; });
