@@ -257,6 +257,12 @@
                 otherDres.x += this.statStrength * this.scaleX;
                 /* Turn the otherDres back after he has been hit. */
                 otherDres.scaleX = this.scaleX;
+                if (!hit) { // Play punchSound just once
+                    var punchSound = document.getElementById("punchSoundEnemyHit");
+                    punchSound.load();
+                    punchSound.play();
+                }
+
                 hit = true;
             }
         }
