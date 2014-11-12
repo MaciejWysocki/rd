@@ -20,6 +20,7 @@
             500,
             'rudydres.png',
             new Mask(100, 500, 150, 650),
+            100,    /* hitPoints */
             100,    /* statStrength */
             70,     /* statRange */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
@@ -29,6 +30,7 @@
             500,
             'rudydres2.png',
             new Mask(200, 500, 350, 650),
+            100,    /* hitPoints */
             100,    /* statStrength */
             70,     /* statRange */
             new Keys(65, 68, 87, 81, 49, 50, 51)));
@@ -39,6 +41,7 @@
             500,
             'lysyblokers.png',
             new Mask(490, 500, 510, 650),
+            20,    /* hitPoints */
             70,    /* statStrength */
             60     /* statRange */));
         this.enemies = this.enemies.concat(new Enemy(
@@ -47,6 +50,7 @@
             500,
             'nerbisDres.png',
             new Mask(590, 500, 610, 650),
+            50,    /* hitPoints */
             110,   /* statStrength */
             50     /* statRange */));
 
@@ -217,11 +221,12 @@
 
     // TODO Add statHitSpeed, statWalkSpeed
     // Base class for Player and Enemy
-    var Character = function(name, x, y, image, mask, statStrength, statRange) {
+    var Character = function(name, x, y, image, mask, hitPoints, statStrength, statRange) {
         // call super constructor
         Element.call(this, name, x, y, image, mask);
 
         /* Assign stats */
+        this.hitPoints = hitPoints;
         this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
         this.statRange = statRange;         /* Defines range of the punches */
     };
@@ -234,11 +239,19 @@
         var otherDresPosition = otherDres.x * this.scaleX;
         return (thisDresPosition < otherDresPosition && thisDresPosition + this.statRange > otherDresPosition);
     };
+    Character.prototype.punch = function (otherDres) {
+        /* Knock otherDres back */
+        otherDres.x += this.statStrength * this.scaleX;
+        /* Turn the otherDres back after he has been hit. */
+        otherDres.scaleX = this.scaleX;
+        /* Take hitPoints away */
+        otherDres.hitPoints -= this.statStrength / 10.0;
+    }
 
     // NPC - simple walking motherfucker
-    var Enemy = function(name, x, y, image, mask, statStrength, statRange) {
+    var Enemy = function (name, x, y, image, mask, hitPoints, statStrength, statRange) {
         // call super constructor
-        Character.call(this, name, x, y, image, mask, statStrength, statRange);
+        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange);
 
         // initialization
         this.state = 'walk';
@@ -246,17 +259,15 @@
     };
     Enemy.prototype = new Character();
     Enemy.prototype.constructor = Enemy;
-    Enemy.prototype.update = function(players) {
+    Enemy.prototype.update = function (players) {
         var hit = false;
         /* Detect if any players are in punch range */
         for (var i = 0; i < players.length; i++) {
             var otherDres = players[i];
 
-            /* If the otherDres is within punch range, knock him 100 pixels back */
+            /* If the otherDres is within punch range, knock him back */
             if (this.isInPunchRange(otherDres)) {
-                otherDres.x += this.statStrength * this.scaleX;
-                /* Turn the otherDres back after he has been hit. */
-                otherDres.scaleX = this.scaleX;
+                this.punch(otherDres);
                 if (!hit) { // Play punchSound just once
                     var punchSound = document.getElementById("punchSoundEnemyHit");
                     punchSound.load();
@@ -289,8 +300,8 @@
     };
 
     // Player is strearable element with health and items.
-    var Player = function(name, x, y, image, mask, statStrength, statRange, keys) {
-        Character.call(this, name, x, y, image, mask, statStrength, statRange);
+    var Player = function (name, x, y, image, mask, hitPoints, statStrength, statRange, keys) {
+        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange);
         this.keys = keys;
         this.jump = 0;
         this.jumpStart = 0;
@@ -301,7 +312,7 @@
     };
     Player.prototype = new Character();
     Player.prototype.constructor = Player;
-    Player.prototype.update = function(bodies) {
+    Player.prototype.update = function (bodies) {
         var punchSound;
         if (this.keys.isKeyDown(this.keys.punch)) {
             if (this.state != "punch") {
@@ -325,9 +336,7 @@
 
                         /* If the otherDres is within punch range, knock him 100 pixels back */
                         if (this.isInPunchRange(otherDres)) {
-                            otherDres.x += this.statStrength * this.scaleX;
-                            /* Turn the otherDres back after he has been hit. */
-                            otherDres.scaleX = this.scaleX;
+                            this.punch(otherDres);
                             hit = true;
                         }
                     }
