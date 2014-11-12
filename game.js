@@ -218,21 +218,18 @@
         }
     };
 
-
+    
     // TODO Add statHitSpeed, statWalkSpeed
     // Base class for Player and Enemy
     var Character = function(name, x, y, image, mask, hitPoints, statStrength, statRange) {
         // call super constructor
-        Element.call(this, name, x, y, image, mask);
+    	if(name) Element.call(this, name, x, y, image, mask);
 
         /* Assign stats */
         this.hitPoints = hitPoints;
         this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
         this.statRange = statRange;         /* Defines range of the punches */
     };
-    // TODO Caleb: not sure if this is correct way to inherit the prototype
-    Character.prototype = new Element();
-    Character.prototype.constructor = Character;
     // Checks if otherDres (Element) is within punching range of this Character
     Character.prototype.isInPunchRange = function(otherDres) {
         var thisDresPosition = this.x * this.scaleX;
