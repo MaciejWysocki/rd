@@ -31,17 +31,17 @@
             70,     /* statRange (pixels) */
             0.2,    /* statWalkSpeed (pixels per millisecond) */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
-        this.players = this.players.concat(new Player(
-            'rudydres2',
-            150,
-            500,
-            'rudydres2.png',
-            new Mask(200, 500, 350, 650),
-            100,    /* hitPoints */
-            100,    /* statStrength (pixels) */
-            70,     /* statRange (pixels) */
-            0.2,    /* statWalkSpeed (pixels per millisecond) */
-            new Keys(65, 68, 87, 81, 49, 50, 51)));
+//        this.players = this.players.concat(new Player(
+//            'rudydres2',
+//            150,
+//            500,
+//            'rudydres2.png',
+//            new Mask(200, 500, 350, 650),
+//            100,    /* hitPoints */
+//            100,    /* statStrength (pixels) */
+//            70,     /* statRange (pixels) */
+//            0.2,    /* statWalkSpeed (pixels per millisecond) */
+//            new Keys(65, 68, 87, 81, 49, 50, 51)));
         /* Enemies */
         this.enemies = this.enemies.concat(new Enemy(
             'lysyblokers',
@@ -57,7 +57,7 @@
             'nerbisDres',
             600,
             500,
-            'nerbisDres.png',
+            'lysyblokers.png',
             new Mask(590, 500, 610, 650),
             50,    /* hitPoints */
             110,   /* statStrength (pixels) */
@@ -102,6 +102,7 @@
                         }
                     }
                 }
+                // TODO this concat looks slow
                 this.players[i].update(this.players.concat(this.enemies), this.deltaTime);
             }
             for (var i = 0; i < this.enemies.length; i++) {
@@ -260,6 +261,8 @@
         otherDres.scaleX = this.scaleX;
         /* Take hitPoints away */
         otherDres.hitPoints -= this.statStrength / 10.0;
+        /* Make him walk */
+        otherDres.state = 'walk';
     }
 
     // NPC - simple walking motherfucker
@@ -274,26 +277,44 @@
     Enemy.prototype = new Character();
     Enemy.prototype.constructor = Enemy;
     Enemy.prototype.update = function (players, deltaTime) {
-        var hit = false;
         /* Detect if any players are in punch range */
         for (var i = 0; i < players.length; i++) {
             var otherDres = players[i];
 
-            /* If the otherDres is within punch range, knock him back */
+            /* If the otherDres is within punch range, trigger punch animation */
             if (this.isInPunchRange(otherDres)) {
-                this.punch(otherDres);
-                if (!hit) { // Play punchSound just once
-                    var punchSound = document.getElementById("punchSoundEnemyHit");
-                    punchSound.load();
-                    punchSound.play();
-                }
-
-                hit = true;
+            	if(this.state === 'punchrest') {
+            		// do nothing to rest
+            	} else if(this.state != 'punch') {
+            		this.state = 'punch';
+            		this.stateStart = new Date().getTime();
+            	/* If the head is down knock him */
+            	} else if (this.animationFrame === 3) {
+	                this.punch(otherDres);
+	                this.state = 'punchrest';
+	                var punchSound = document.getElementById('punchSoundEnemyHit');
+	                punchSound.load();
+	                punchSound.play();
+	            }
             }
         }
-
-        /* If no players were hit, just keep on walking */
-        if (!hit) {
+        
+        /* Punching */
+	    if(this.state === 'punch') {
+	    	var punchDuration = new Date().getTime() - this.stateStart;
+	    	this.animationFrame = Math.floor(Math.min(3, (punchDuration * this.statWalkSpeed) / 6));
+	    	// Back to walk when someone run away from the punch range
+	    	if(punchDuration > 100 / this.statWalkSpeed) {
+	    		this.state = 'walk';
+	    	}
+	    } else if(this.state === 'punchrest') {
+	    	/* Back to walk after punch timeout. */
+	    	var punchDuration = new Date().getTime() - this.stateStart;
+	    	if(punchDuration > 100 / this.statWalkSpeed) {
+	    		this.state = 'walk';
+	    	}
+	    } else {
+	    	/* Keep on walking */
             /* Move 3px in direction indicated by scaleX */
             this.x += this.statWalkSpeed * deltaTime * this.scaleX;
             this.animationFrame++;
@@ -310,7 +331,13 @@
         enemy.style.top = this.y + 'px';
 
         enemy.style.transform = 'scaleX(' + this.scaleX + ')';
-        enemyimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
+        if(this.state === 'punch' || this.state === 'punchrest') {
+        	enemyimage.style.marginLeft = -(this.animationFrame * 150) + 'px';
+        	enemyimage.style.marginTop = '-150px';
+        } else {
+        	enemyimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
+        	enemyimage.style.marginTop = null;
+        }
     };
 
     // Player is strearable element with health and items.
