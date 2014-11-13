@@ -27,9 +27,9 @@
             'rudydres.png',
             new Mask(100, 500, 150, 650),
             100,    /* hitPoints */
-            100,    /* statStrength */
-            70,     /* statRange */
-            0.2,    /* statWalkSpeed (per millisecond) */
+            100,    /* statStrength (pixels) */
+            70,     /* statRange (pixels) */
+            0.2,    /* statWalkSpeed (pixels per millisecond) */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
         this.players = this.players.concat(new Player(
             'rudydres2',
@@ -38,9 +38,9 @@
             'rudydres2.png',
             new Mask(200, 500, 350, 650),
             100,    /* hitPoints */
-            100,    /* statStrength */
-            70,     /* statRange */
-            0.2,    /* statWalkSpeed (per millisecond) */
+            100,    /* statStrength (pixels) */
+            70,     /* statRange (pixels) */
+            0.2,    /* statWalkSpeed (pixels per millisecond) */
             new Keys(65, 68, 87, 81, 49, 50, 51)));
         /* Enemies */
         this.enemies = this.enemies.concat(new Enemy(
@@ -50,9 +50,9 @@
             'lysyblokers.png',
             new Mask(490, 500, 510, 650),
             20,    /* hitPoints */
-            70,    /* statStrength */
-            60,    /* statRange */
-            0.1    /* statWalkSpeed (per millisecond) */));
+            70,    /* statStrength (pixels) */
+            60,    /* statRange (pixels) */
+            0.1    /* statWalkSpeed (pixels per millisecond) */));
         this.enemies = this.enemies.concat(new Enemy(
             'nerbisDres',
             600,
@@ -60,9 +60,9 @@
             'nerbisDres.png',
             new Mask(590, 500, 610, 650),
             50,    /* hitPoints */
-            110,   /* statStrength */
-            50,    /* statRange */
-            0.2    /* statWalkSpeed (per millisecond) */));
+            110,   /* statStrength (pixels) */
+            50,    /* statRange (pixels) */
+            0.2    /* statWalkSpeed (pixels per millisecond) */));
 
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
@@ -235,7 +235,7 @@
     };
 
     
-    // TODO Add statHitSpeed, statWalkSpeed
+    // TODO Add statHitSpeed
     // Base class for Player and Enemy
     var Character = function(name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed) {
         // call super constructor
@@ -243,9 +243,9 @@
 
         /* Assign stats */
         this.hitPoints = hitPoints;
-        this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
-        this.statRange = statRange;         /* Defines range of the punches */
-        this.statWalkSpeed = statWalkSpeed; /* Walking speed per millisecond. */
+        this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit (in pixels). */
+        this.statRange = statRange;         /* Defines range of the punches (in pixels). */
+        this.statWalkSpeed = statWalkSpeed; /* Walking speed (pixels per millisecond). */
     };
     // Checks if otherDres (Element) is within punching range of this Character
     Character.prototype.isInPunchRange = function(otherDres) {
