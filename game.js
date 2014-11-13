@@ -12,6 +12,12 @@
         this.enemies = [];
         this.items = [];
 
+        /* Time of last Game.tick() execution. Used to calculate detlaTime. */
+        this.lastUpdate = Date.now();
+        /* Time that passed since last Game.tick() call in milliseconds. Multiply any time-based actions (like walking)
+         * with this value. */
+        this.deltaTime = 0;
+
         // Bootload
         /* Players */
         this.players = this.players.concat(new Player(
@@ -23,6 +29,7 @@
             100,    /* hitPoints */
             100,    /* statStrength */
             70,     /* statRange */
+            0.2,    /* statWalkSpeed (per millisecond) */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
         this.players = this.players.concat(new Player(
             'rudydres2',
@@ -33,6 +40,7 @@
             100,    /* hitPoints */
             100,    /* statStrength */
             70,     /* statRange */
+            0.2,    /* statWalkSpeed (per millisecond) */
             new Keys(65, 68, 87, 81, 49, 50, 51)));
         /* Enemies */
         this.enemies = this.enemies.concat(new Enemy(
@@ -43,7 +51,8 @@
             new Mask(490, 500, 510, 650),
             20,    /* hitPoints */
             70,    /* statStrength */
-            60     /* statRange */));
+            60,    /* statRange */
+            0.1    /* statWalkSpeed (per millisecond) */));
         this.enemies = this.enemies.concat(new Enemy(
             'nerbisDres',
             600,
@@ -52,7 +61,8 @@
             new Mask(590, 500, 610, 650),
             50,    /* hitPoints */
             110,   /* statStrength */
-            50     /* statRange */));
+            50,    /* statRange */
+            0.2    /* statWalkSpeed (per millisecond) */));
 
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
@@ -60,13 +70,19 @@
         this.level.render();
 
         var self = this;
-        var tick = function() {
+        var tick = function () {
+            /* Calculate detaTime. */
+            var now = Date.now();
+            self.deltaTime = now - self.lastUpdate;
+            self.lastUpdate = now;
+
             self.update();
             self.render();
             requestAnimationFrame(tick);
         };
         tick();
     };
+
     Game.prototype = {
         update: function() {
             for (var i = 0; i < this.players.length; i++) {
@@ -86,10 +102,10 @@
                         }
                     }
                 }
-                this.players[i].update(this.players.concat(this.enemies));
+                this.players[i].update(this.players.concat(this.enemies), this.deltaTime);
             }
             for (var i = 0; i < this.enemies.length; i++) {
-                this.enemies[i].update(this.players);
+                this.enemies[i].update(this.players, this.deltaTime);
             }
             for (var i = 0; i < this.items.length; i++) {
                 this.items[i].update();
@@ -221,7 +237,7 @@
     
     // TODO Add statHitSpeed, statWalkSpeed
     // Base class for Player and Enemy
-    var Character = function(name, x, y, image, mask, hitPoints, statStrength, statRange) {
+    var Character = function(name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed) {
         // call super constructor
     	if(name) Element.call(this, name, x, y, image, mask);
 
@@ -229,6 +245,7 @@
         this.hitPoints = hitPoints;
         this.statStrength = statStrength;   /* Defines how far the enemy is knocked back after a hit */
         this.statRange = statRange;         /* Defines range of the punches */
+        this.statWalkSpeed = statWalkSpeed; /* Walking speed per millisecond. */
     };
     // Checks if otherDres (Element) is within punching range of this Character
     Character.prototype.isInPunchRange = function(otherDres) {
@@ -246,9 +263,9 @@
     }
 
     // NPC - simple walking motherfucker
-    var Enemy = function (name, x, y, image, mask, hitPoints, statStrength, statRange) {
+    var Enemy = function (name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed) {
         // call super constructor
-        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange);
+        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed);
 
         // initialization
         this.state = 'walk';
@@ -256,7 +273,7 @@
     };
     Enemy.prototype = new Character();
     Enemy.prototype.constructor = Enemy;
-    Enemy.prototype.update = function (players) {
+    Enemy.prototype.update = function (players, deltaTime) {
         var hit = false;
         /* Detect if any players are in punch range */
         for (var i = 0; i < players.length; i++) {
@@ -278,7 +295,7 @@
         /* If no players were hit, just keep on walking */
         if (!hit) {
             /* Move 3px in direction indicated by scaleX */
-            this.x += 3 * this.scaleX;
+            this.x += this.statWalkSpeed * deltaTime * this.scaleX;
             this.animationFrame++;
             /* When character is reaching the end of the game screen, change its move direction */
             // TODO change to colision with Level masks
@@ -297,8 +314,8 @@
     };
 
     // Player is strearable element with health and items.
-    var Player = function (name, x, y, image, mask, hitPoints, statStrength, statRange, keys) {
-        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange);
+    var Player = function (name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed, keys) {
+        Character.call(this, name, x, y, image, mask, hitPoints, statStrength, statRange, statWalkSpeed);
         this.keys = keys;
         this.jump = 0;
         this.jumpStart = 0;
@@ -310,7 +327,7 @@
     };
     Player.prototype = new Character();
     Player.prototype.constructor = Player;
-    Player.prototype.update = function (bodies) {
+    Player.prototype.update = function (bodies, deltaTime) {
         var punchSound;
         if (this.keys.isKeyDown(this.keys.punch)) {
             if (this.state != "punch") {
@@ -349,12 +366,12 @@
         } else if (this.keys.isKeyDown(this.keys.left) && this.x > 0) {
             // TODO change those x limits to colision model based on Level masks.
             this.state = "walk";
-            this.x -= 3;
+            this.x -= this.statWalkSpeed * deltaTime;
             this.animationFrame++;
             this.scaleX = -1;
         } else if (this.keys.isKeyDown(this.keys.right) && this.x < 1450) {
             this.state = "walk";
-            this.x += 3;
+            this.x += this.statWalkSpeed * deltaTime;
             this.animationFrame++;
             this.scaleX = 1;
         } else {
