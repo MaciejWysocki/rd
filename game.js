@@ -31,17 +31,29 @@
             70,     /* statRange (pixels) */
             0.2,    /* statWalkSpeed (pixels per millisecond) */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
-//        this.players = this.players.concat(new Player(
-//            'rudydres2',
-//            150,
-//            500,
-//            'rudydres2.png',
-//            new Mask(200, 500, 350, 650),
-//            100,    /* hitPoints */
-//            100,    /* statStrength (pixels) */
-//            70,     /* statRange (pixels) */
-//            0.2,    /* statWalkSpeed (pixels per millisecond) */
-//            new Keys(65, 68, 87, 81, 49, 50, 51)));
+        this.players = this.players.concat(new Player(
+            'rudydres2',
+            100,
+            500,
+            'rudydres2.png',
+            new Mask(150, 500, 200, 650),
+            100,    /* hitPoints */
+            100,    /* statStrength (pixels) */
+            70,     /* statRange (pixels) */
+            0.2,    /* statWalkSpeed (pixels per millisecond) */
+            new Keys(65, 68, 87, 81, 49, 50, 51)));
+        this.players = this.players.concat(new Player(
+            'nerbisDres',
+            150,
+            500,
+            'nerbisDres.png',
+            new Mask(200, 500, 250, 650),
+            100,    /* hitPoints */
+            100,    /* statStrength (pixels) */
+            70,     /* statRange (pixels) */
+            0.2,    /* statWalkSpeed (pixels per millisecond) */
+            new Keys(74, 76, 73, 72, 89, 85, 79)));
+        
         /* Enemies */
         this.enemies = this.enemies.concat(new Enemy(
             'lysyblokers',
@@ -54,7 +66,7 @@
             60,    /* statRange (pixels) */
             0.1    /* statWalkSpeed (pixels per millisecond) */));
         this.enemies = this.enemies.concat(new Enemy(
-            'nerbisDres',
+            'lysyblokers2',
             600,
             500,
             'lysyblokers.png',
