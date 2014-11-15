@@ -85,6 +85,7 @@
 
     Game.prototype = {
         update: function() {
+            this.level.update(this.players);
             for (var i = 0; i < this.players.length; i++) {
                 for (var j = 0; j < this.players.length; j++) {
                     if (this.players[i] != this.players[j]) {
@@ -111,7 +112,6 @@
             for (var i = 0; i < this.items.length; i++) {
                 this.items[i].update();
             }
-            this.level.update();
         },
 
         render: function() {
@@ -122,6 +122,7 @@
             if (clientWidth < this.size.width) {
                 window.scrollTo(Math.min(this.players[0].x + 75 - clientWidth / 2, this.size.width - clientWidth), this.size.width);
             }
+            this.level.render();
             for (var i = 0; i < this.players.length; i++) {
                 this.players[i].render();
             }
@@ -179,17 +180,45 @@
         this.masks = this.masks.concat(new Mask(0, 650, 1600, 660));
         this.masks = this.masks.concat(new Mask(-100, 0, -1, 700));
         this.masks = this.masks.concat(new Mask(1600, 0, 1700, 700));
+        
+        // door to liquor store
+        this.doors = this.doors.concat(new Door('storedoor', new Mask(480, 460, 550, 650), this, 464, 383, 'storehighlight.png'));
+        
+        // initial render
+        var gameDiv = document.getElementById('game');
+        gameDiv.style.backgroundImage = 'url(' + this.background + ')';
     };
     Level.prototype = {
-        update: function() {
-        },
-        render: function() {
-            document.getElementById('game').style.backgroundImage = 'url(' + this.background + ')';
+	    update : function(players) {
+    		// if center of the player is inside inner door and player jumps make him enter the door
+			for (var j = 0; j < this.doors.length; j++) {
+				var d = this.doors[j];
+				d.activablee = false;
+				for ( var i = 0; i < players.length; i++) {
+					var p = players[i];
+					if (p.x + 75 > d.mask.minX && p.x + 75 < d.mask.maxX) {
+						d.activablee = true;
+						if (p.state != 'doorEnter' && p.keys.isKeyDown(p.keys.jump)) {
+							p.state = 'doorEnter';
+							p.stateStart = new Date().getTime();
+							break;
+						}
+					}
+				}
+			}
+		},
+        render: function() {		
+            // highlight activable doors
+            for (var i = 0; i < this.doors.length; i++) {
+            	var d = this.doors[i];
+            	var display = (d.activablee == true) ? '' : 'none';
+            	document.getElementById(d.id).style.display = display;
+            }
         }
     };
 
     // Masks are invisible collision rectangles which define when elements interact with Levels and other elements.
-    var Mask = function(minX, maxX, minY, maxY) {
+    var Mask = function(minX, minY, maxX, maxY) {
         this.minX = minX;
         this.maxX = maxX;
         this.minY = minY;
@@ -197,9 +226,20 @@
     };
 
     // Rectangle area which defines where player can switch the level to the one mapped to one configured by this door.
-    var Door = function(mask, level) {
+    var Door = function(id, mask, level, x, y, png) {
+    	this.id = id;
         this.mask = mask;
         this.level = level;
+        this.inner = true;
+        this.activablee = false;
+        
+        // initialization
+        var doorImg = document.createElement('img');
+        doorImg.setAttribute('id', id);
+        doorImg.setAttribute('src', png);
+        doorImg.style.marginLeft = x;
+        doorImg.style.marginTop = y;
+        document.getElementById('game').appendChild(doorImg);
     };
 
     // Element is a class for items, laying weapons, effects like blood or explosion. It is also base class for players and enemies.
@@ -213,6 +253,7 @@
         this.mask = mask;
         this.state = 'nothing';
         this.stateStart = new Date().getTime();
+        this.visible = true;
 
         // initialization
         var img = document.createElement('img');
@@ -279,10 +320,10 @@
     Enemy.prototype.update = function (players, deltaTime) {
         /* Detect if any players are in punch range */
         for (var i = 0; i < players.length; i++) {
-            var otherDres = players[i];
+            var player = players[i];
 
             /* If the otherDres is within punch range, trigger punch animation */
-            if (this.isInPunchRange(otherDres)) {
+            if (player.state != 'doorEnter' && this.isInPunchRange(player)) {
             	if(this.state === 'punchrest') {
             		// do nothing to rest
             	} else if(this.state != 'punch') {
@@ -290,7 +331,7 @@
             		this.stateStart = new Date().getTime();
             	/* If the head is down knock him */
             	} else if (this.animationFrame === 3) {
-	                this.punch(otherDres);
+	                this.punch(player);
 	                this.state = 'punchrest';
 	                var punchSound = document.getElementById('punchSoundEnemyHit');
 	                punchSound.load();
@@ -356,7 +397,25 @@
     Player.prototype.constructor = Player;
     Player.prototype.update = function (bodies, deltaTime) {
         var punchSound;
-        if (this.keys.isKeyDown(this.keys.punch)) {
+        if (this.state === 'doorEnter') {
+        	// first second enter // 2 seconds buy // last second exit
+            var duration = new Date().getTime() - this.stateStart;
+        	if(duration < 1000) {
+        		this.x = 440 + duration / 50;
+        		this.y = 500 - duration / 25;
+				this.scaleX = 1;
+        	} else if (duration < 2000) {
+        		this.visible = false;
+        	} else if (duration < 3000) {
+        		this.visible = true;
+        		this.x = 460 - (duration - 2000) / 50;
+        		this.y = 460 + (duration - 2000) / 25;
+        		this.scaleX = -1;
+        	} else {
+            	this.state = 'walk';
+            }
+            this.animationFrame++;
+        } else if (this.keys.isKeyDown(this.keys.punch)) {
             if (this.state != "punch") {
                 this.animationFrame = 0;
                 this.state = "punch";
@@ -406,7 +465,7 @@
             this.animationFrame = 0;
         }
 
-        if (this.keys.isKeyDown(this.keys.jump) && this.jump === 0) {
+        if (this.keys.isKeyDown(this.keys.jump) && this.jump === 0 && this.state != 'doorEnter') {
             this.jump = 1;
             this.jumpStart = new Date().getTime();
             sound = document.getElementById(this.name + "JumpSound");
@@ -425,18 +484,24 @@
         }
     };
     Player.prototype.render = function() {
-        var rudydres = document.getElementById(this.name);
-        var rudydresimage = document.getElementById(this.name + '-image');
-        rudydres.style.left = this.x + 'px';
-        rudydres.style.top = this.y - this.jump + 'px';
-
-        rudydres.style.transform = 'scaleX(' + this.scaleX + ')';
-        if (this.state === "walk") {
-        	rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
-            rudydresimage.style.marginTop = null;
-        } else if (this.state === "punch") {
-        	rudydresimage.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) - 600 * this.punchRight + 'px';
-            rudydresimage.style.marginTop = '-150px';
+        var playerDiv = document.getElementById(this.name);
+        var playerImg = document.getElementById(this.name + '-image');
+        playerDiv.style.left = this.x + 'px';
+        playerDiv.style.top = this.y - this.jump + 'px';
+        playerDiv.style.transform = 'scaleX(' + this.scaleX + ')';
+       	playerDiv.style.display = this.visible ? '' : 'none';
+        
+        if (this.state === 'walk') {
+        	playerImg.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
+            playerImg.style.marginTop = null;
+        } else if (this.state === 'punch') {
+        	playerImg.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) - 600 * this.punchRight + 'px';
+            playerImg.style.marginTop = '-150px';
+        } else if (this.state === 'doorEnter') {
+        	var playerDiv = document.getElementById(this.name);
+        	playerDiv.style.top = this.y - this.jump + 'px';
+        	playerImg.style.marginLeft = -((Math.floor(this.animationFrame / 5) % 8) * 150) + 'px';
+            playerImg.style.marginTop = null;
         }
     };
 
