@@ -31,50 +31,50 @@
             70,     /* statRange (pixels) */
             0.2,    /* statWalkSpeed (pixels per millisecond) */
             new Keys(37, 39, 38, 16, 13, 191, 222)));
-        this.players = this.players.concat(new Player(
-            'rudydres2',
-            100,
-            500,
-            'rudydres2.png',
-            new Mask(150, 500, 200, 650),
-            100,    /* hitPoints */
-            100,    /* statStrength (pixels) */
-            70,     /* statRange (pixels) */
-            0.2,    /* statWalkSpeed (pixels per millisecond) */
-            new Keys(65, 68, 87, 81, 49, 50, 51)));
-        this.players = this.players.concat(new Player(
-            'nerbisDres',
-            150,
-            500,
-            'nerbisDres.png',
-            new Mask(200, 500, 250, 650),
-            100,    /* hitPoints */
-            100,    /* statStrength (pixels) */
-            70,     /* statRange (pixels) */
-            0.2,    /* statWalkSpeed (pixels per millisecond) */
-            new Keys(74, 76, 73, 72, 89, 85, 79)));
-        
-        /* Enemies */
-        this.enemies = this.enemies.concat(new Enemy(
-            'lysyblokers',
-            500,
-            500,
-            'lysyblokers.png',
-            new Mask(490, 500, 510, 650),
-            20,    /* hitPoints */
-            70,    /* statStrength (pixels) */
-            60,    /* statRange (pixels) */
-            0.1    /* statWalkSpeed (pixels per millisecond) */));
-        this.enemies = this.enemies.concat(new Enemy(
-            'lysyblokers2',
-            600,
-            500,
-            'lysyblokers.png',
-            new Mask(590, 500, 610, 650),
-            50,    /* hitPoints */
-            110,   /* statStrength (pixels) */
-            50,    /* statRange (pixels) */
-            0.2    /* statWalkSpeed (pixels per millisecond) */));
+//        this.players = this.players.concat(new Player(
+//            'rudydres2',
+//            100,
+//            500,
+//            'rudydres2.png',
+//            new Mask(150, 500, 200, 650),
+//            100,    /* hitPoints */
+//            100,    /* statStrength (pixels) */
+//            70,     /* statRange (pixels) */
+//            0.2,    /* statWalkSpeed (pixels per millisecond) */
+//            new Keys(65, 68, 87, 81, 49, 50, 51)));
+//        this.players = this.players.concat(new Player(
+//            'nerbisDres',
+//            150,
+//            500,
+//            'nerbisDres.png',
+//            new Mask(200, 500, 250, 650),
+//            100,    /* hitPoints */
+//            100,    /* statStrength (pixels) */
+//            70,     /* statRange (pixels) */
+//            0.2,    /* statWalkSpeed (pixels per millisecond) */
+//            new Keys(74, 76, 73, 72, 89, 85, 79)));
+//        
+//        /* Enemies */
+//        this.enemies = this.enemies.concat(new Enemy(
+//            'lysyblokers',
+//            500,
+//            500,
+//            'lysyblokers.png',
+//            new Mask(490, 500, 510, 650),
+//            20,    /* hitPoints */
+//            70,    /* statStrength (pixels) */
+//            60,    /* statRange (pixels) */
+//            0.1    /* statWalkSpeed (pixels per millisecond) */));
+//        this.enemies = this.enemies.concat(new Enemy(
+//            'lysyblokers2',
+//            600,
+//            500,
+//            'lysyblokers.png',
+//            new Mask(590, 500, 610, 650),
+//            50,    /* hitPoints */
+//            110,   /* statStrength (pixels) */
+//            50,    /* statRange (pixels) */
+//            0.2    /* statWalkSpeed (pixels per millisecond) */));
 
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
@@ -134,6 +134,15 @@
             if (clientWidth < this.size.width) {
                 window.scrollTo(Math.min(this.players[0].x + 75 - clientWidth / 2, this.size.width - clientWidth), this.size.width);
             }
+            var hudDiv = document.getElementById('hud');
+            hudDiv.style.marginLeft = Math.min(Math.max(0, this.players[0].x + 64 - 383 * (this.players.length + 2) / 2), this.size.width - 20 - 383 * (this.players.length + 2));
+            
+            if(document.body.clientHeight < this.size.height) {
+            	hudDiv.style.top = 20 - (document.body.clientHeight - this.size.height);
+            } else {
+            	hudDiv.style.top = 20;
+            }
+            
             this.level.render();
             for (var i = 0; i < this.players.length; i++) {
                 this.players[i].render();
@@ -180,6 +189,27 @@
         }
     };
 
+    var Hud = function(players, gameSze) {
+    	this.players = players;
+    	this.gameSize = gameSize;
+    	
+    	// initialization
+    	var hudDiv = document.getElementById('hud');
+    	
+    	// window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
+    };
+    Hud.prototype = {
+        update : function() {
+    	},
+        render : function() {
+    		document.getElementById('hud');
+    		for(var i = 0; i < this.players.length; i++) {
+    		    
+    		}
+    		
+    	}
+    };
+    
     // Level defines background and masks (platforms, walls, etc.) which define where elements can move.
     var Level = function(background) {
         this.background = background;

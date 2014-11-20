@@ -24,6 +24,40 @@
                 width: 150px;
                 height: 150px;
             }
+            
+            #hud {
+   				position: absolute;
+   				top: 20px;
+            }
+            
+            .hud_player {
+            	float: left;
+			    margin-left: 20px;
+            }
+            
+            .hud_player_frame {
+            	position: relative;
+            	background-image: url('hudframe.png');
+            	width: 363px;
+            	height: 130px;
+			    top: -183px;        	
+            }
+            
+			.hud_player_logo {
+			    left: 10px;
+			    position: relative;
+			    top: -70px;
+            }
+            
+            .hud_player_shadow {
+            	background: none repeat scroll 0 0 black;
+				height: 81px;
+  				left: 70px;
+  				top: 21px;
+  				width: 290px;
+  				opacity: 0.7;
+    			position: relative;
+            }
 
             #game {
                 background-position: left bottom;
@@ -52,6 +86,23 @@
             <audio id="rudydresJumpSound" src="rudydres-hop.mp3"></audio>
             <audio id="rudydres2JumpSound" src="rudydres2-hop.mp3"></audio>
             <audio id="nerbisDresJumpSound" src="nerbisDres-hop.mp3"></audio>
+            <div id="hud">
+            	<div class="hud_player">
+         	    	<div class="hud_player_shadow"></div>
+         	    	<div class="hud_player_logo"><img src="hudadd.png" /></div>
+         	    	<div class="hud_player_frame"></div>
+    			</div>
+            	<div class="hud_player">
+         	    	<div class="hud_player_shadow"></div>
+         	    	<div class="hud_player_logo"><img src="hudadddown.png" /></div>
+         	    	<div class="hud_player_frame"></div>
+    			</div>
+            	<div class="hud_player">
+         	    	<div class="hud_player_shadow"></div>
+         	    	<div class="hud_player_logo"><img src="hudrudydres.png" /></div>
+         	    	<div class="hud_player_frame"></div>
+    			</div>
+    		</div>
         </div>
     </body>
 </html>
