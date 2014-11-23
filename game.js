@@ -213,6 +213,10 @@
 		        var newPlayerDiv = player1Div.cloneNode(true);
 		        newPlayerDiv.setAttribute('id', 'player' + this.players.length);
 		        player1Div.parentNode.insertBefore(newPlayerDiv, player1Div);
+		        
+		        var newPlayerSound = document.getElementById('jakisProblemSound');
+	            newPlayerSound.load();
+	            newPlayerSound.play();
         	}
         }
     };
