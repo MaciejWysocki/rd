@@ -53,18 +53,18 @@
 //            70,     /* statRange (pixels) */
 //            0.2,    /* statWalkSpeed (pixels per millisecond) */
 //            new Keys(74, 76, 73, 72, 89, 85, 79)));
-//        
-//        /* Enemies */
-//        this.enemies = this.enemies.concat(new Enemy(
-//            'lysyblokers',
-//            500,
-//            500,
-//            'lysyblokers.png',
-//            new Mask(490, 500, 510, 650),
-//            20,    /* hitPoints */
-//            70,    /* statStrength (pixels) */
-//            60,    /* statRange (pixels) */
-//            0.1    /* statWalkSpeed (pixels per millisecond) */));
+        
+        /* Enemies */
+        this.enemies = this.enemies.concat(new Enemy(
+            'lysyblokers',
+            500,
+            500,
+            'lysyblokers.png',
+            new Mask(490, 500, 510, 650),
+            20,    /* hitPoints */
+            70,    /* statStrength (pixels) */
+            60,    /* statRange (pixels) */
+            0.1    /* statWalkSpeed (pixels per millisecond) */));
 //        this.enemies = this.enemies.concat(new Enemy(
 //            'lysyblokers2',
 //            600,
@@ -75,6 +75,8 @@
 //            110,   /* statStrength (pixels) */
 //            50,    /* statRange (pixels) */
 //            0.2    /* statWalkSpeed (pixels per millisecond) */));
+
+        this.hud = new Hud(this);
 
         var gameDiv = document.getElementById('game');
         gameDiv.style.width = this.size.width;
@@ -134,15 +136,7 @@
             if (clientWidth < this.size.width) {
                 window.scrollTo(Math.min(this.players[0].x + 75 - clientWidth / 2, this.size.width - clientWidth), this.size.width);
             }
-            var hudDiv = document.getElementById('hud');
-            hudDiv.style.marginLeft = Math.min(Math.max(0, this.players[0].x + 64 - 383 * (this.players.length + 2) / 2), this.size.width - 20 - 383 * (this.players.length + 2));
-            
-            if(document.body.clientHeight < this.size.height) {
-            	hudDiv.style.top = 20 - (document.body.clientHeight - this.size.height);
-            } else {
-            	hudDiv.style.top = 20;
-            }
-            
+            this.hud.render(this.players);
             this.level.render();
             for (var i = 0; i < this.players.length; i++) {
                 this.players[i].render();
@@ -186,27 +180,72 @@
             }
             // change level and let it render
             this.level = level;
+        },
+        
+        addPlayer: function() {
+        	if(this.players.length < 3) {
+        		if(this.players.length == 1) {
+			        this.players = this.players.concat(new Player(
+			            'rudydres2' + new Date().getTime(),
+			            100,
+			            500,
+			            'rudydres2.png',
+			            new Mask(150, 500, 200, 650),
+			            100,    /* hitPoints */
+			            100,    /* statStrength (pixels) */
+			            70,     /* statRange (pixels) */
+			            0.2,    /* statWalkSpeed (pixels per millisecond) */
+			            new Keys(65, 68, 87, 81, 49, 50, 51)));
+        		} else {
+			        this.players = this.players.concat(new Player(
+			            'nerbisDres',
+			            150,
+			            500,
+			            'nerbisDres.png',
+			            new Mask(200, 500, 250, 650),
+			            100,    /* hitPoints */
+			            100,    /* statStrength (pixels) */
+			            70,     /* statRange (pixels) */
+			            0.2,    /* statWalkSpeed (pixels per millisecond) */
+			            new Keys(74, 76, 73, 72, 89, 85, 79)));
+        		}
+		        var player1Div = document.getElementById('player1');
+		        var newPlayerDiv = player1Div.cloneNode(true);
+		        newPlayerDiv.setAttribute('id', 'player' + this.players.length);
+		        player1Div.parentNode.insertBefore(newPlayerDiv, player1Div);
+        	}
         }
     };
 
-    var Hud = function(players, gameSze) {
-    	this.players = players;
-    	this.gameSize = gameSize;
+    var Hud = function(game) {
+    	this.game = game;
     	
     	// initialization
     	var hudDiv = document.getElementById('hud');
+    	var hudAddDiv = document.getElementById('hud_add');
+    	var hudAddImg = document.getElementById('hud_add_image');
     	
-    	// window.addEventListener('keydown', function(e) { keyState[e.keyCode] = true; });
+    	hudAddDiv.addEventListener('mouseover', function() { document.getElementById('hud_add_image').style.marginLeft = -69; });
+    	hudAddDiv.addEventListener('mouseout', function() { document.getElementById('hud_add_image').style.marginLeft = 0; });
+    	hudAddDiv.addEventListener('mousedown', function() { document.getElementById('hud_add_image').style.marginLeft = -138; });
+    	hudAddDiv.addEventListener('mouseup', function() { document.getElementById('hud_add_image').style.marginLeft = -69; });
+    	hudAddDiv.addEventListener('click', function() { game.addPlayer(); });
     };
     Hud.prototype = {
-        update : function() {
-    	},
-        render : function() {
-    		document.getElementById('hud');
-    		for(var i = 0; i < this.players.length; i++) {
-    		    
-    		}
-    		
+        render : function(players) {
+    		var hudDiv = document.getElementById('hud');
+    		var plusVisible = players.length < 3;
+            var plusWidth = plusVisible ? 89 : 0;
+            hudDiv.style.marginLeft = Math.min(Math.max(0, players[0].x + 18 - 383 * players.length / 2), this.game.size.width - 18 - plusWidth - 383 * players.length);
+            
+            if(document.body.clientHeight < this.game.size.height) {
+            	hudDiv.style.top = 20 - (document.body.clientHeight - this.game.size.height);
+            } else {
+            	hudDiv.style.top = 20;
+            }
+            
+            var hudAddDiv = document.getElementById('hud_add');
+            hudAddDiv.style.display = plusVisible ? 'block' : 'none';
     	}
     };
     

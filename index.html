@@ -30,6 +30,14 @@
    				top: 20px;
             }
             
+            #hud_add {
+                float: left;
+    			margin-left: 20px;
+    			margin-top: 27px;
+    			overflow: hidden;
+    			width: 69px;
+    		}
+            
             .hud_player {
             	float: left;
 			    margin-left: 20px;
@@ -87,21 +95,12 @@
             <audio id="rudydres2JumpSound" src="rudydres2-hop.mp3"></audio>
             <audio id="nerbisDresJumpSound" src="nerbisDres-hop.mp3"></audio>
             <div id="hud">
-            	<div class="hud_player">
-         	    	<div class="hud_player_shadow"></div>
-         	    	<div class="hud_player_logo"><img src="hudadd.png" /></div>
-         	    	<div class="hud_player_frame"></div>
-    			</div>
-            	<div class="hud_player">
-         	    	<div class="hud_player_shadow"></div>
-         	    	<div class="hud_player_logo"><img src="hudadddown.png" /></div>
-         	    	<div class="hud_player_frame"></div>
-    			</div>
-            	<div class="hud_player">
+            	<div id="player1" class="hud_player">
          	    	<div class="hud_player_shadow"></div>
          	    	<div class="hud_player_logo"><img src="hudrudydres.png" /></div>
          	    	<div class="hud_player_frame"></div>
     			</div>
+            	<div id="hud_add"><img id="hud_add_image" src="huddadd.png" /></div>
     		</div>
         </div>
     </body>
