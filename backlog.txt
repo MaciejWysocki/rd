@@ -1,0 +1,10 @@
+TODO
+Plan simple and clean project structure
+How to solve networking (how to handle connections and many clients)
+Basic model for the world
+Basic model for character / player
+Which build system to use
+Security :>>>
+
+DONE
+How to solve multiplayer (node vs java backend)
