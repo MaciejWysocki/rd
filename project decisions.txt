@@ -1,5 +1,0 @@
-Game has to be dynamic!
-Browser is a target client
-Start with new random player every page load
-User HTTP/2
-Write backend in node.js
