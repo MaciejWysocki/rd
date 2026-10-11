@@ -10,22 +10,36 @@ Keep this file up to date when a feature lands or changes. Context in [AGENTS.md
 |---|---|---|
 | Walking (←/→) with collision | done | `player.js`, solids from section `boundaries` |
 | Punching (Space) | partial | Animation + miss sound only; **no hit detection, no damage** |
-| Universal combat system (Rudy = NPCs = bosses) | planned | Design confirmed: same logic, different parameters; 1–several attacks per character, 4 sprite frames each |
-| Taking damage / HP / death | planned | `State.stats.Rudy.hp` exists but nothing reads/writes it |
+| Combat: first-to-strike + timed evasion | planned | Hit resolved at attack-animation finish (full stretch); retreat/jump before finish → miss, unbuffered (PLAN.md) |
+| RPS tie-break on simultaneous strikes | planned | ~100 ms tie buffer counted at animation finish: headbutt > punch > kick > headbutt |
+| Move sets per character (key + sprite row) | planned | Data-driven; e.g. `lysyblokers` = headbutt only; Rudy gains headbutt/kick via missions |
+| Universal combat system (Rudy = NPCs = bosses) | planned | Same logic, different parameters (stats, move set) |
+| Taking damage / HP / defeat | planned | HP is a character param, 0 = defeat; `State.stats.Rudy.hp` exists but is unused |
+| Blood VFX + corpses until section exit | planned | Corpse reset on `leave()` already matches the data model |
+| Stamina (attack fatigue) | planned (later version, not PoC) | Character-stat-driven; hard attacking slows movement, recovers after a pause |
 | Section transitions along street route | done | Open edges (`exitLeft`/`exitRight`) in street JSON |
 | Patrol enemy (`lysyblokers`) | done | Paces spawn-point ↔ first solid; no combat behavior |
 | Enemy: `rat` | data-only | In `ulica-01/01` JSON, skipped at spawn (no sprite/behavior) |
 | Enemy: `thug` | data-only | In `ulica-01/02` JSON, skipped at spawn |
-| Boss fight (`boss_kozak` in `ulica-01/02`) | data-only | Spawn gated on flags `quest_rudy_started` (true) & `boss_kozak_defeated` (false); no boss actor/behavior/fight |
-| Missions / quests | planned | `State.quests` + boss flag conditions are the only traces |
+| PoC boss (`bum` in `ulica-01/02`) | planned | Idle without beer; beer in inventory → intro clip + boss music + fight; defeat → congratulatory message (Phase 0 target) |
+| Boss intro cutscene (anim + sound, immobilizes player) | planned | Generalize the `shop-entry.js` scripted-sequence pattern |
+| Main mission (spans the whole street) | planned | One mission across all sections; `State.quests` is the only trace so far |
+| Side quest (one per section) | planned | Each section gets its own local quest |
+| Section bosses (quest-linked or standalone) | data-only | Boss slot + flag conditions exist; a boss may tie to a side quest, the main mission, or no mission at all |
 | NPC townsfolk + dialogue | data-only | `babcia_kasia`, `pijak_jozef` with dialogue ids in JSON; never drawn, no dialogue system |
 | Chest interaction (`giveItem`) | data-only | `skrzynka_1` in JSON; no code handles it |
-| Shop | partial | Door highlight + scripted walk-in/out with sound (`shop-entry.js`); **no shop UI, no buy/sell** |
+| Shop | partial | **Automated & invisible** (entrance is part of the background): walk-in plays an mp3, buying beer (piwo) plays a second mp3; no UI |
 | Door interaction (`goToRoute`) | data-only | `drzwi_1` in JSON; no code handles it |
 | HUD (HP, money, etc.) | planned | — |
-| Save / load | planned | `State.serialize()` exists, unused |
+| Game over screen (stats + death music + restart button) | planned | On Rudy's HP 0; **no saves — session-only play** (supersedes the earlier browser-save expectation) |
 | Data-driven content (configurable via files) | partial | Street JSON works; goal: new section/street = files only (see AGENTS.md "Content pipeline") |
-| Player vertical movement (↑/↓) | planned? | `ArrowDown` is in `GAME_KEYS` but unused — see questions below |
+| Jump / retreat (timed evasion) | planned | Dodge options in combat; movement is X-axis only (confirmed) |
+| Neutral pedestrians (GTA-like: flee / fight / take a beating) | planned | Post-PoC (Phase 3) |
+| Dialogue MP3s + random catchphrase loops | planned | Most characters silent; objectives as very brief text |
+| Collapsible menu (stats, missions, street status, timer) | planned | Congratulatory message on street completion (Phase 4) |
+| Mission stat boosts (no XP / leveling) | planned | Each mission slightly boosts stats |
+| Item-driven spawns (beer → boss in another section) | planned | Phase 0 target mechanic |
+| Audio layering (ambient → section music → boss music) | planned | Highest active layer wins |
 
 ## World data
 
@@ -43,26 +57,37 @@ Keep this file up to date when a feature lands or changes. Context in [AGENTS.md
 | `assets/sounds/rudy_dres-punch-miss.mp3` | Punch whoosh |
 | `assets/sounds/ulica-01_01-sklep.mp3` | Shop entry jingle |
 
+Backgrounds will be **real photographs of the actual street** (owner-supplied), scaled to the 1600x800 canvas. Sprites and audio are **produced by the owner**: frame-by-frame 2D sprites and own sound effects / music.
+
 ## Confirmed design (from the owner)
 
+- **Genre & look**: simple "karate" beat-'em-up in the style of Amiga titles like *Renegade* / *Final Fight*; single static background screens switched on area exit (like the Atari game *Ninja*), no continuous scrolling.
+- **Setting**: a specific real street in the owner's city; section backgrounds are photographs of its various sections.
+- **Pillars**: combat and questing — main mission across the whole street, one side quest per section, per-section boss optionally linked to either quest or to nothing.
+- **Assets**: owner-made frame-by-frame 2D sprites; owner-made sound effects and music.
 - **World**: streets (starting with one), each made of sections (starting with two) forming a sequence traversed back and forth — a section can be revisited, e.g. `01 → 02 → 01 → 02`.
 - **Section enter pipeline**: load image → set boundaries → generate standard NPCs → generate enemies → check boss conditions → check interactions. **Exit**: standard NPCs / enemies / bodies reset; quests, inventory, money, world flags and stats do not reset → enables "Oh, I came back here and things are different now."
 - **Combat**: universal logic for Rudy, standard NPCs and bosses; they differ only in their parameters. Each character has one to several attacks.
 - **Sprites**: initially all frames 150x150px — 8 frames walking, 4 frames per attack.
 - **Content**: ultimately configurable via files; new section = image + section JSON + characters + quests/conditions + audio; new street = `data/streets/<street>/` directory.
+- **Full mechanics spec & phased implementation plan**: [PLAN.md](PLAN.md) — combat (first-to-strike, RPS tie-break at animation finish, timed retreat/jump, per-character move sets & speeds), HP/death/blood/corpses, game over screen (no saves), items & mission inventory, three boss types, dialogue, audio layering, UI menu, PoC scope.
 
-## Open questions
+## Decisions answered (owner, 2026-10-11)
 
-1. **Combat resolution** — how does a punch connect (hitbox in front of Rudy at full extension?), damage formula, knockback? How do enemies attack back? For >2 attacks, do the 4-frame groups continue in the attack row or start new rows?
-2. **Player health / game over** — what happens at 0 HP? Respawn, reload, game over screen?
-3. **Missions** — how are quests started (talking to NPCs?) and tracked? Is `quest_rudy_started` set by a specific NPC/dialogue?
-4. **Boss fight** — how does `boss_kozak` differ beyond parameters (phases, arena, conditions to start)? What does defeating him set/do?
-5. **Shop** — what can be bought/sold? Is the current walk-in/out sequence meant to lead to a shop screen?
-6. **NPCs & dialogue** — dialogue format for `dialogue_kasia_01` / `dialogue_jozef_01`? Interaction key (↑ like the shop door)?
-7. **Movement plane** — strictly side-scrolling (X only) or is there ↑/↓ movement on the street?
-8. **Save / load** — needed? When (manual, autosave on section change)?
+All five open questions are answered and folded into PLAN.md ("Former 'Open decisions' — answered" + phases):
+
+1. **Player defeat** → game over screen with statistics, death music, restart button; **no saves, no saving capability**.
+2. **Combat timing** → ~100 ms tie buffer counted at attack-animation finish (full stretch); per-character movement/attack speeds; retreat/jump unbuffered — dodge before the animation finish and you are not hit.
+3. **Stamina** → later version, not PoC; character-stat-driven slowdown with recovery after a pause.
+4. **Shop** → fully automated and invisible (entrance is part of the background); entry mp3, different mp3 after buying beer (piwo).
+5. **Objectives / HP / info display** → subject of PoC testing (P0.8 experiment); owner decides after playtests.
+
+⚠ One contradiction to confirm: the earlier expectation said "mission status saved in the browser, with reset option"; the new answer says **no saving capability**. The docs and plan follow the new answer (session-only play).
 
 ## Changelog
 
 - 2026-10-11: file created. Baseline: walking, collisions, section transitions, `lysyblokers` patrol, punch animation, shop entry sequence.
 - 2026-10-11: owner-confirmed design folded in (world model, enter/exit reset semantics, universal combat, 4-frames-per-attack sprites, file-configurable content); "more streets" question resolved.
+- 2026-10-11: owner vision folded in: Amiga-style "karate" beat-'em-up (*Renegade*/*Final Fight*) on a real photographed street, static screens switched on exit (Atari *Ninja* style), combat+questing pillars (main mission + per-section side quest, flexible bosses), owner-made art/audio, config-driven architecture goal.
+- 2026-10-11: final expectations (21 points) folded into **PLAN.md** — phased workable plan (Phase 0 PoC first: single-blow combat, beer → bum boss, congrats, browser save + reset). Combat spec locked (first-to-strike, RPS tie-break headbutt>punch>kick>headbutt, timed retreat/jump, key+sprite-row move config); X-only movement, browser save + reset, no XP/leveling confirmed; open questions reduced to 5 non-blocking ones.
+- 2026-10-12: owner answered the 5 open decisions (game over screen + death music + restart, **no saves**; ~100 ms tie buffer at animation finish, unbuffered dodges, per-character speeds; stamina later/stat-driven; automated invisible shop with two mp3s; info display TBD via testing). PLAN.md reworked into a **markable task list** (stable IDs P0.1–P5.3, checkbox + status emojis, Status board). ⚠ "No saves" supersedes the earlier browser-save expectation — flagged for confirmation.
