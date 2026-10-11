@@ -1,0 +1,12 @@
+{
+    "name": "lysyblokers",
+    "sprite": "lysyblokers",
+    "hp": 3,
+    "walkSpeed": 100,
+    "walkFrameMs": 80,
+    "attackFrameMs": 25,
+    "hitbox": { "x": 50, "y": 120, "w": 50, "h": 25 },
+    "moves": [
+        { "row": 1, "type": "headbutt" }
+    ]
+}

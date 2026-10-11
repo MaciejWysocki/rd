@@ -1,0 +1,15 @@
+{
+    "name": "player",
+    "sprite": "rudy_dres",
+    "hp": 6,
+    "walkSpeed": 180,
+    "walkFrameMs": 80,
+    "attackFrameMs": 17.5,
+    "jumpKey": "ArrowUp",
+    "jumpDurationMs": 600,
+    "jumpHeightPx": 120,
+    "hitbox": { "x": 50, "y": 120, "w": 50, "h": 25 },
+    "moves": [
+        { "key": "Space", "row": 1, "type": "punch", "alternate": true }
+    ]
+}

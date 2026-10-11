@@ -11,25 +11,16 @@
                 { "x": 0,   "y": 0,   "w": 40,  "h": 760 },
                 { "x": 300, "y": 300, "w": 120, "h": 60 }
             ],
-            "npcs": [
-                { "id": "babcia_kasia", "type": "townsfolk", "x": 200, "y": 420, "dialogue": "dialogue_kasia_01" }
-            ],
             "enemies": [
-                { "id": "szczur_1", "type": "rat", "x": 500, "y": 420 },
                 { "id": "lysy_1", "type": "lysyblokers", "x": 1450, "y": 598 }
             ],
             "boss": null,
             "interactions": [
                 {
-                    "id": "skrzynka_1",
-                    "type": "chest",
-                    "x": 620, "y": 380, "w": 40, "h": 40,
-                    "action": { "type": "giveItem", "item": "apple", "qty": 1 }
-                },
-                {
                     "id": "sklep_1", "type": "shop",
                     "x": 450, "y": 433, "w": 100, "h": 180,
-                    "sound": "assets/sounds/ulica-01_01-sklep.mp3"
+                    "sound": "assets/sounds/ulica-01_01-sklep.mp3",
+                    "highlight": { "image": "assets/bg/ulica-01_01-sklep.png", "x": 158, "y": 288 }
                 }
             ]
         },
@@ -39,22 +30,16 @@
             "boundaries": [
                 { "x": 0,   "y": 0,   "w": 800, "h": 40 },
                 { "x": 0,   "y": 560, "w": 800, "h": 40 },
-                { "x": 1560, "y": 0,  "w": 40,  "h": 700 }
+                { "x": 1550, "y": 0,  "w": 50,  "h": 800 }
             ],
-            "npcs": [
-                { "id": "pijak_jozef", "type": "townsfolk", "x": 400, "y": 300, "dialogue": "dialogue_jozef_01" }
-            ],
-            "enemies": [
-                { "id": "bandyta_1", "type": "thug", "x": 600, "y": 400 },
-                { "id": "bandyta_2", "type": "thug", "x": 150, "y": 400 }
-            ],
+            "enemies": null,
             "boss": {
-                "id": "boss_kozak",
-                "type": "boss",
+                "id": "boss_zul",
+                "type": "boss_zul",
                 "x": 400, "y": 200,
                 "conditions": {
                     "flagsTrue": ["quest_rudy_started"],
-                    "flagsFalse": ["boss_kozak_defeated"]
+                    "flagsFalse": ["boss_zul_defeated"]
                 }
             },
             "interactions": [

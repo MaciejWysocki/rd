@@ -1,34 +1,21 @@
 // src/save/State.js
-
-/**
- * State.js
- *
- * This class stores persistent game data that does not reset when changing locations.
- * It keeps track of quests, inventory, money, world flags, and character statistics.
- * The main character is named "Rudy".
- */
+//
+// State.js
+//
+// This class stores game data that does not reset when changing locations:
+// quests, inventory, money, world flags and character statistics. Statistics
+// are seeded from the character config files (see main.js). There is no save
+// system — the game is session-only (owner decision 2026-10-11).
+//
+// The main character is named "Rudy".
 
 export default class State {
     constructor() {
-        // Persistent data structures
-        this.quests = {};          // { questId: questObject }
-        this.inventory = {};        // { itemId: {item, qty} }
-        this.money = 0;               // player money
-        this.flags = {};            // { flagName: boolean }
-        this.stats = {};            // { characterName: statsObject }
-
-        // Default stats for the main hero Rudy
-        this.stats.Rudy = {
-            hp: 100,
-            maxHp: 100,
-            mp: 50,
-            maxMp: 50,
-            strength: 10,
-            agility: 10,
-            intelligence: 10,
-            level: 1,
-            experience: 0,
-        };
+        this.quests = {};      // { questId: questObject }
+        this.inventory = {};   // { itemId: { item, qty } }
+        this.money = 0;
+        this.flags = {};       // { flagName: boolean }
+        this.stats = {};       // { characterName: statsObject }, seeded from character config
     }
 
     /* Quest helpers */
@@ -74,10 +61,5 @@ export default class State {
     /* Stats helpers */
     getStats(name) {
         return this.stats[name];
-    }
-
-    /* Serialise state for debugging / persistence */
-    serialize() {
-        return JSON.stringify(this, null, 2);
     }
 }

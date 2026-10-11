@@ -1,0 +1,12 @@
+{
+    "name": "boss_zul",
+    "sprite": "boss_zul",
+    "hp": 8,
+    "walkSpeed": 90,
+    "walkFrameMs": 80,
+    "attackFrameMs": 30,
+    "hitbox": { "x": 50, "y": 120, "w": 50, "h": 25 },
+    "moves": [
+        { "row": 1, "type": "headbutt" }
+    ]
+}

@@ -23,7 +23,7 @@ Companion docs: [AGENTS.md](AGENTS.md) (context & conventions — read first), [
 
 | Phase | Scope | Progress | Status |
 |---|---|---|---|
-| 🧪 0 | PoC — mechanics test bed (**PRIORITY**) | 0/8 | ⬜ |
+| 🧪 0 | PoC — mechanics test bed (**PRIORITY**) | 1/8 | 🔄 |
 | ⚔️ 1 | Full combat system | 0/4 | ⬜ |
 | 📜 2 | Questing & world-state engine | 0/3 | ⬜ |
 | 🚶 3 | NPCs & dialogue | 0/2 | ⬜ |
@@ -104,10 +104,10 @@ Overall: ⬜ — nothing of this plan implemented yet (a pre-plan baseline exist
 
 Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` — plus the shop**; section 2 (`ulica-01/02`) holds the **bum boss**. Without beer in the inventory the bum **stands there and does not react**; with beer he **triggers an audio clip, boss music starts, and the fight begins**. Combat is **trading single blows** with a simple HP counter (a few points) down to zero. Defeating him shows a **congratulatory message**.
 
-- [ ] ⬜ **P0.1 — Character & move configuration (data-driven)**
-  - Files: new `src/data/characters/*.json`; `src/actors/actor.js`, `src/actors/player.js`, `src/actors/enemy.js`, `src/input/keyboard.js`.
-  - Move set per character: `{ key, row, type: punch|kick|headbutt, frames: 4 }`; walk stays row 0 (8 frames); per-character movement and attack speed parameters. PoC moves: Rudy → punch (row 1, frames 0–3 of the existing sheet), `lysyblokers` → headbutt, bum → headbutt.
-  - Acceptance: changing a move's key/row/type or a character's speeds is a JSON-only edit.
+- [x] ✅ **P0.1 — Character & move configuration (data-driven)** *(done in the 2026-10-12 pre-PoC refactor)*
+  - Files: `data/characters/*.json` (`player`, `lysyblokers`, `boss_zul`), `src/actors/character-defs.js`, `src/actors/actor.js`, `src/actors/player.js`, `src/actors/enemy.js`, `src/main.js`.
+  - Move set per character: `{ key, row, type: punch|kick|headbutt }` (4 frames per move row; `"alternate": true` alternates the row's two 4-frame groups on every other attack — Rudy's punch: 0–3 / 4–7 hands); walk stays row 0 (8 frames); per-character movement and attack speed parameters; player config also carries `jumpKey`/`jumpDurationMs`/`jumpHeightPx`. PoC moves: Rudy → punch (row 1), `lysyblokers` → headbutt, `boss_zul` → headbutt.
+  - Acceptance (verified in browser 2026-10-12): the game runs on configs alone; changing a move's key/row/type or a character's speeds is a JSON-only edit.
 - [ ] ⬜ **P0.2 — Simple combat (trading single blows)**
   - Files: `src/actors/*`, `src/game/play-state.js`.
   - First-to-strike lands the hit; damage applies at the finish of the attack animation; HP is a few points counting down; HP 0 → character defeated, lying on the ground until section exit.
@@ -116,9 +116,9 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Files: `src/game/shop-entry.js`, `src/game/play-state.js`, street JSON.
   - Walking into the shop (entrance is part of the background) plays the entry mp3 (`assets/sounds/ulica-01_01-sklep.mp3`); buying beer (piwo) plays a second mp3; `beer` lands in the inventory. No UI.
   - Acceptance: both mp3s heard in sequence during one shop visit; inventory holds `beer` afterwards.
-- [ ] ⬜ **P0.4 — Conditional bum boss (beer-driven)**
-  - Files: street JSON (section 02 `boss` → `bum` with item condition), `src/world/section.js`, new boss behavior under `src/actors/`.
-  - Boss conditions extend from flags to **items** (`hasItem: ["beer"]`). Without beer: stands idle, no reaction. With beer: intro audio clip + boss music + the fight starts.
+- [ ] ⬜ **P0.4 — Conditional boss (`boss_zul`, the bum) triggered by beer**
+  - Files: street JSON (section 02 `boss` → `boss_zul` with item condition), `src/world/section.js`, new boss behavior under `src/actors/`.
+  - Boss conditions extend from flags to **items** (`hasItem: ["beer"]`). Without beer: stands idle, no reaction. With beer: the `boss-intro` audio (by convention) + boss music + the fight starts.
   - Acceptance: both paths observable in-game.
 - [ ] ⬜ **P0.5 — Victory message**
   - On boss defeat: congratulatory message (brief text).
@@ -139,7 +139,7 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - ~100 ms tie buffer counted from attack-animation finish (full stretch); simultaneous finishes → headbutt > punch > kick > headbutt.
   - Acceptance: simultaneous strikes resolve by the RPS table; single earlier strike always wins.
 - [ ] ⬜ **P1.2 — Timed evasion (retreat + jump)**
-  - Unbuffered dodges; the hitbox check at animation finish respects evasion — dodge before the finish → no hit, too late → hit.
+  - Unbuffered dodges; the hitbox check at animation finish respects evasion — dodge before the finish → no hit, too late → hit. (The jump hop itself exists since 2026-10-12; this task adds its combat semantics plus the retreat move.)
   - Acceptance: dodging just before the finish avoids damage; dodging after getting hit still takes it.
 - [ ] ⬜ **P1.3 — Move sets & per-character speeds**
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
@@ -194,7 +194,8 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Acceptance: passersby appear and react variably.
 
 ## 📎 Asset dependencies (owner-supplied; code picks by naming convention / config paths)
-- **PoC**: mp3 "beer bought" (piwo) sound, death music, boss intro clip, boss music.
-- **Later**: street ambient sounds, section music, catchphrase mp3s, dialogue mp3s.
-- **Sprites**: headbutt row for `lysyblokers`, bum sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row).
-- Optional audio layers (ambient/music) must degrade gracefully when a file is absent; configured sounds (shop mp3s, boss clip, death music) report errors like other assets.
+- Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>_<section>-ambient` (loop), `boss-intro`. **Every audio file is optional — a missing file means silence.**
+- **PoC**: `player-jump.mp3`, `player-attack-hit.mp3`, `lysyblokers-attack-miss/-hit.mp3`, the "beer bought" (piwo) mp3, death music (`game-over.mp3`), `boss-intro.mp3`, boss music (`boss-music.mp3`). (`player-attack-miss.mp3` and `ulica-01_01-sklep.mp3` exist.)
+- **Later**: `ulica-01_01-ambient`-style street ambient loops, section music, catchphrase mp3s, dialogue mp3s.
+- **Sprites**: headbutt row for `lysyblokers`, `boss_zul` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row).
+- Convention-based sounds are always optional (silence when absent); only sounds explicitly configured in a JSON file (e.g. the shop `sound` field) report errors like other assets.

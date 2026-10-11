@@ -11,7 +11,8 @@
  * never touched here.
  */
 
-import Enemy, { isEnemyType } from '../actors/enemy.js';
+import Enemy from '../actors/enemy.js';
+import { loadCharacterDef } from '../actors/character-defs.js';
 
 export default class Section {
     /**
@@ -90,9 +91,10 @@ export default class Section {
     async _spawnEnemies() {
         const enemies = [];
         for (const config of this.config.enemies ?? []) {
-            // Enemy types without an implementation yet are skipped.
-            if (!isEnemyType(config.type)) continue;
-            const enemy = new Enemy(config);
+            // Types without a character config file are not implemented yet and are skipped.
+            const def = await loadCharacterDef(config.type);
+            if (!def) continue;
+            const enemy = new Enemy({ x: config.x, y: config.y, def });
             await enemy.load();
             enemies.push(enemy);
         }

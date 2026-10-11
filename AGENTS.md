@@ -40,8 +40,11 @@ A simple browser-based "karate" game — a beat-'em-up in the style of Amiga tit
 | `src/actors/enemy.js` | Patrol enemy: walks left from spawn, turns at first solid or at spawn point. |
 | `src/input/keyboard.js` | Held keys + one-shot `consumePress`, by `e.code`. |
 | `src/render/sprite-sheet.js` | Fixed square frames in rows; one row = one animation. |
-| `src/save/state.js` | Persistent `State`: quests, inventory, money, flags, per-character stats (Rudy has hp/mp/etc.). Not yet serialized anywhere. |
-| `src/data/streets/*.json` | Street/section definitions (see schema below). |
+| `src/save/state.js` | `State` shared across sections: quests, inventory, money, flags, runtime stats (seeded from character config). No save system — session-only. |
+| `src/audio/audio.js` | Convention-based sound playback (attack miss/hit, section ambient loop, boss intro); every file optional. |
+| `src/actors/character-defs.js` | Loads `data/characters/<type>.json`; a type without a config is not implemented and is skipped at spawn. |
+| `data/characters/*.json` | Character configs: stats (hp, walk/attack speed), hitbox, sprite name, move set (key + sprite row). |
+| `data/streets/*.json` | Street/section definitions (see schema below). |
 | `assets/bg/<street>_<section>.png` | Section backgrounds (naming convention is hardcoded in `Section`). |
 | `assets/sprites/*.png` | Character sprite sheets. |
 | `assets/sounds/*.mp3` | SFX. |
@@ -49,19 +52,20 @@ A simple browser-based "karate" game — a beat-'em-up in the style of Amiga tit
 ## Conventions (follow these, don't invent new ones)
 
 - **Sprite sheets**: 150x150 px frames ("initially, all frames are 150x150px"), one animation per row. Row 0 = walk (8 frames). **Each move/attack = its own row of 4 frames**. Walk 80 ms/frame, punch 17.5 ms/frame. `facing = -1` mirrors horizontally.
-- **Moves are data-configured**: a character's config maps input keys → sprite rows (`{ key, row, type: punch|kick|headbutt }`), never hardcoded per character (PLAN.md P0.1).
+- **Moves are data-configured**: a character's config maps input keys → sprite rows (`{ key, row, type: punch|kick|headbutt }`), never hardcoded per character (`data/characters/*.json`, loaded via `character-defs.js`). A move with `"alternate": true` switches between the row's two 4-frame groups on **every other attack** (e.g. Rudy's punch: frames 0–3 right hand, 4–7 left hand); without it the animation is always the same.
 - **Combat is universal**: the same combat logic serves Rudy, standard NPCs and bosses — they differ only in their parameters (stats, attack set).
 - **Combat timing**: the hit is resolved at the **finish of the attack animation (full stretch)**; retreat/jump before the finish → miss (dodges are unbuffered); attack finishes within **~100 ms** of each other → RPS tie-break (headbutt > punch > kick > headbutt). Movement and attack speeds are per character.
-- **No XP, no leveling**: progression and items are tied to missions; each mission gives a slight stat boost (`level`/`experience` in `State.stats` are dead weight — remove them, PLAN.md P0.7).
+- **No XP, no leveling**: progression and items are tied to missions; each mission gives a slight stat boost.
 - **Audio layering**: street ambient → section music (overrides ambient) → boss music (overrides section music). The highest active layer wins.
+- **Audio by convention** (`src/audio/audio.js`, files in `assets/sounds/`): `player-attack-miss`/`player-attack-hit` and `<enemyName>-attack-miss`/`<enemyName>-attack-hit` on attacks; `<who>-jump` (e.g. `player-jump`) when jumping; `<street>_<section>-ambient` loops per section (e.g. `ulica-01_01-ambient`); `boss-intro` on the boss fight intro. **Every convention file is optional — a missing file means silence.**
 - **Art and audio are produced by the owner**: frame-by-frame 2D sprites (following the sprite-sheet convention), sound effects and music. Code selects assets by naming convention only and must never depend on specific asset content.
-- **Hitbox**: feet area of the 150x150 frame: `{ x: 50, y: 120, w: 50, h: 25 }` (player and enemies alike).
+- **Hitbox**: feet area of the 150x150 frame, defined per character config (conventionally `{ x: 50, y: 120, w: 50, h: 25 }`).
 - **Delta time is milliseconds** throughout.
 - **Persistent vs transient**: quests/flags/inventory/money/stats live in global `State` and survive section changes; NPCs/enemies/boss/corpses live in `Section` and are rebuilt from JSON on every `enter()`.
-- **Street JSON schema** (`src/data/streets/ulica-01.json`):
+- **Street JSON schema** (`data/streets/ulica-01.json`):
   - `street`, `route: [sectionId, ...]` (ids may repeat),
-  - `sections[id]`: `name`, `exitLeft`/`exitRight` (booleans; open edges allow route traversal), `boundaries` (solid rects), `npcs`, `enemies` (`id`, `type`, `x`, `y`), `boss` (`type`, `x`, `y`, `conditions: { flagsTrue, flagsFalse }`), `interactions` (`type`: `shop` | `chest` | `door`, rect, `action`, optional `sound`).
-- **Enemy types** are registered in `ENEMY_TYPES` in `src/actors/enemy.js`. Types not registered (`rat`, `thug`, `boss`) are silently skipped at spawn — data may reference them ahead of implementation.
+  - `sections[id]`: `name`, `exitLeft`/`exitRight` (booleans; open edges allow route traversal), `boundaries` (solid rects), `npcs`, `enemies` (`id`, `type`, `x`, `y`), `boss` (`type`, `x`, `y`, `conditions: { flagsTrue, flagsFalse }`), `interactions` (`type`: `shop` | `chest` | `door`, rect, `action`, optional `sound`, optional `highlight: { image, x, y }` — shop overlay drawn at its fixed position while the player stands at the door).
+- **Enemy types** are defined by `data/characters/<type>.json` (stats + move set). Types without a config file (`rat`, `thug`) are silently skipped at spawn — street JSON may reference them ahead of implementation.
 - Coordinates: actor `x`/`y` are the **frame top-left** in world px; the section bg is drawn stretched to the full 1600x800 canvas.
 - Errors and code comments are English; user-facing strings and error `throw`s are Polish.
 
@@ -74,13 +78,13 @@ Ultimately the game must be **configurable via files**: sections, enemies, NPCs 
 
 ## Controls
 
-Desktop keyboard; keys are **mapped per move in the character config** (PLAN.md P0.1). Current defaults:
+Desktop keyboard; keys are **mapped per move in the character config** (`jumpKey` lives there too). Current defaults:
 
-- ← / →: walk; Space: punch (stands still while punching); ↑ at a highlighted shop door: enter shop.
-- Planned (Phase 1): jump / retreat keys for timed evasion.
+- ← / →: walk (keeps walking in place when blocked); Space: punch (stands still while attacking, alternating hands); ↑: jump (walk cycle plays in the air; **holding ↑ keeps hopping**; plays `player-jump.mp3`; side arrows stay live mid-jump) — **except** at a highlighted shop door, where ↑ enters the shop instead (highlight stays visible through the whole enter/inside/exit sequence).
+- Planned (Phase 1): retreat key for timed evasion.
 
-## Current status (2026-10-11)
+## Current status (2026-10-12)
 
-Working: walking + collision vs boundaries, section transitions along the route (Rudy re-enters at x=50 from the left / x=1450 from the right), the `lysyblokers` patrol enemy in `ulica-01/01`, punch animation + miss sound (no damage yet), shop-door highlight + scripted entry with sound (no shop UI yet).
+Working: walking + collision vs boundaries, section transitions along the route (Rudy re-enters at x=50 from the left / x=1450 from the right; section 02's right wall blocks him flush with the viewport edge), the `lysyblokers` patrol enemy in `ulica-01/01`, attack animation with alternating hands (frames 0–3 / 4–7) + convention-based miss sound (no damage yet), jump (↑, `player-jump.mp3`, walk cycle continues in the air, arrows live mid-jump), shop highlight (`ulica-01_01-sklep.png` overlay at 158, 288) + scripted entry with sound (no shop UI yet). Since the 2026-10-12 refactor the code is **config-driven**: character stats/hitbox/moves in `data/characters/*.json`, streets/sections in `data/streets/*.json`, audio resolved by naming convention (`src/audio/audio.js`).
 
-Not implemented yet (data or scaffolding exists, behavior does not): combat damage/HP/death, other enemy types (`rat`, `thug`, boss fight), NPCs (spawned as data, never drawn), chest/door interactions, dialogue, missions/quests, HUD, save/load. Details and tracking in [FEATURES.md](FEATURES.md). Next up: **Phase 0 (PoC)** in [PLAN.md](PLAN.md) — two sections, single-blow combat with HP, beer → bum boss, congratulatory message, game over screen (stats + death music + restart).
+Not implemented yet (data or scaffolding exists, behavior does not): combat damage/HP/death, other enemy types (`rat`, `thug` — skipped until they get character configs), the boss fight, NPCs (pipeline exists; example NPCs removed from data), chest/door interactions, dialogue, missions/quests, HUD. Details and tracking in [FEATURES.md](FEATURES.md). Next up: **Phase 0 (PoC)** in [PLAN.md](PLAN.md) — two sections, single-blow combat with HP, beer → bum boss, congratulatory message, game over screen (stats + death music + restart).

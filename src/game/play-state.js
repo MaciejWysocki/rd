@@ -9,6 +9,7 @@
  */
 
 import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
+import { startAmbient } from '../audio/audio.js';
 
 // Where Rudy appears when entering a section from the left; matches his start X in main.js.
 const ENTRY_X_FROM_LEFT = 50;
@@ -30,6 +31,17 @@ export default class PlayState {
         this.keyboard = keyboard;
         this.transitioning = false;
         this.shop = new ShopEntry();
+        this._highlightImages = new Map();
+    }
+
+    onEnter() {
+        this._syncAmbient();
+    }
+
+    /** (Re)starts the convention-based `<street>_<section>-ambient` loop for the current section. */
+    _syncAmbient() {
+        const section = this.world.currentSection;
+        if (section) startAmbient(this.world.streetName, section.id);
     }
 
     update(dt) {
@@ -37,14 +49,16 @@ export default class PlayState {
 
         const section = this.world.currentSection;
         const solids = section ? section.boundaries : [];
-        // Consumed every frame so an Up press made away from a door does not fire later.
-        const upPressed = this.keyboard.consumePress('ArrowUp');
 
         if (this.shop.active) {
+            // Swallow Up presses during the sequence so they don't fire as a jump afterwards.
+            this.keyboard.consumePress('ArrowUp');
             this.shop.update(dt);
         } else {
             const door = this._shopDoor(section);
-            if (door && upPressed && !this.player.attacking && isPlayerUnderDoor(door, this.player)) {
+            const underDoor = door && !this.player.attacking && !this.player.jumping && isPlayerUnderDoor(door, this.player);
+            // Up enters the shop at a door; the same key jumps elsewhere (consumed in player.update).
+            if (underDoor && this.keyboard.consumePress('ArrowUp')) {
                 this.shop.start(door, this.player);
             } else {
                 this.player.update(dt, this.keyboard, solids);
@@ -77,6 +91,7 @@ export default class PlayState {
             if (step > 0) await this.world.next();
             else await this.world.prev();
             this.player.x = entryX;
+            this._syncAmbient();
         } finally {
             this.transitioning = false;
         }
@@ -96,22 +111,28 @@ export default class PlayState {
         }
 
         const door = this._shopDoor(section);
-        if (door && !this.shop.active && isPlayerUnderDoor(door, this.player)) {
-            this._highlight({ x: door.x + 25, y: door.y + 90, w: door.w, h: door.h });
+        // Highlight while Rudy stands at the door and through the whole shop
+        // sequence (enter, inside, exit).
+        if (door && (this.shop.active || isPlayerUnderDoor(door, this.player))) {
+            this._drawShopHighlight(door);
         }
 
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
         this.player.draw(ctx);
     }
 
-    _highlight({ x, y, w, h }) {
-        const { ctx } = this;
-        ctx.save();
-        ctx.fillStyle = 'rgba(255, 210, 80, 0.25)';
-        ctx.fillRect(x, y, w, h);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(255, 230, 120, 0.95)';
-        ctx.strokeRect(x, y, w, h);
-        ctx.restore();
+    /** Draws the shop highlight overlay from the door's `highlight` config: image at its fixed position. */
+    _drawShopHighlight(door) {
+        const hl = door.highlight;
+        if (!hl) return;
+        let img = this._highlightImages.get(hl.image);
+        if (!img) {
+            img = new Image();
+            img.src = hl.image;
+            this._highlightImages.set(hl.image, img);
+        }
+        if (img.complete && img.naturalWidth > 0) {
+            this.ctx.drawImage(img, hl.x, hl.y);
+        }
     }
 }

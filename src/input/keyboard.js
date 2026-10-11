@@ -4,18 +4,21 @@
  * keyboard.js
  *
  * Tracks held keys and one-shot presses by their physical code (e.g. "ArrowLeft").
+ * extraGameKeys registers character-config keys (move keys, jumpKey) so the
+ * browser default action is prevented for them too.
  */
 
-const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
+const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space']);
 
 export default class Keyboard {
-    constructor(target = window) {
+    constructor(target = window, extraGameKeys = []) {
         this.target = target;
+        this.gameKeys = new Set([...GAME_KEYS, ...extraGameKeys]);
         this.down = new Set();
         this.pressed = new Set();
 
         this._onKeyDown = e => {
-            if (GAME_KEYS.has(e.code)) e.preventDefault();
+            if (this.gameKeys.has(e.code)) e.preventDefault();
             if (!e.repeat) this.pressed.add(e.code);
             this.down.add(e.code);
         };
