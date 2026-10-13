@@ -37,7 +37,7 @@ A simple browser-based "karate" game — a beat-'em-up in the style of Amiga tit
 | `src/world/world-manager.js` | Loads a street JSON; the street is a **route** of section ids, which may repeat (e.g. `["01","02","01"]`). One section active at a time. |
 | `src/world/section.js` | One section: background, boundaries, NPCs, enemies, boss check, interactions. Transient data rebuilt on `enter()`, wiped on `leave()`. |
 |`src/actors/actor.js`|Base for all characters: position, hitbox, sprite-sheet animation, `tryMove` vs solids, punch animation, HP/defeat (`takeDamage`, lying pose on death).|
-|`src/actors/combat.js`|Universal strike resolution: the blow connects at the attack's full extension when its reach covers the **target hitbox centre** (facing + vertical overlap too), 1 damage, hit interrupts the defender's blow; recovery per character (`recoveryMs`).|
+|`src/actors/combat.js`|Universal strike resolution: the blow connects at the attack's full extension (hitbox-edge to hitbox-edge reach + facing vs hitboxes), 1 damage, hit interrupts the defender's blow; recovery per character (`recoveryMs`).|
 |`src/actors/player.js`|Rudy: arrow-key movement, Space punch (holds at full extension until release). **No delays**: every press is a punch (`recoveryMs: 0`), presses during a blow queue up and fire right after it.|
 |`src/actors/enemy.js`|Patrol enemy: walks left from spawn, turns at first solid or at spawn point; breaks the patrol to fight the player when he comes close (face → approach → attack).|
 |`src/actors/boss.js`|Section boss (`boss_zul`): stands idle until its `trigger` conditions are met, then fights like an enemy and never gives up the chase; cannot be struck before the fight; defeat sets the `<id>_defeated` world flag.|
@@ -63,7 +63,7 @@ A simple browser-based "karate" game — a beat-'em-up in the style of Amiga tit
 - **Audio layering**: street ambient → section music (overrides ambient) → boss music (overrides section music). The highest active layer wins.
 - **Audio by convention** (`src/audio/audio.js`, files in `assets/sounds/`): `player-attack-miss`/`player-attack-hit` and `<enemyName>-attack-miss`/`<enemyName>-attack-hit` on attacks; `<who>-jump` (e.g. `player-jump`) when jumping; `<street>_<section>-ambient` loops per section (e.g. `ulica-01_01-ambient`); `boss-intro` on the boss fight intro. **Every convention file is optional — a missing file means silence.**
 - **Art and audio are produced by the owner**: frame-by-frame 2D sprites (following the sprite-sheet convention), sound effects and music. Code selects assets by naming convention only and must never depend on specific asset content.
-- **Hitbox**: feet area of the 150x150 frame, defined per character config (conventionally `{ x: 50, y: 120, w: 50, h: 25 }`).
+- **Hitbox**: feet area of the 150x150 frame, defined per character config (conventionally `{ x: 55, y: 120, w: 40, h: 25 }` — narrowed from 50 wide on 2026-10-13; combat measures hitbox-edge to hitbox-edge, see `combat.js`).
 - **Delta time is milliseconds** throughout.
 - **Persistent vs transient**: quests/flags/inventory/money/stats live in global `State` and survive section changes; NPCs/enemies/boss live in `Section` and are rebuilt from JSON on every `enter()` — except **kills**, which are persisted in `State` (`defeatedEnemies`, id → where the body lies) and reappear as corpses on re-entry.
 - **Street JSON schema** (`data/streets/ulica-01.json`):

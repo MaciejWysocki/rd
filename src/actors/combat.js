@@ -14,16 +14,16 @@
 
 import { playAttackSound } from '../audio/audio.js';
 
-// The blow counts only when its reach covers the target's hitbox CENTRE —
-// measured from the attacker's hitbox front edge. Glancing gaps between the
-// sprites (where the art clearly misses) must not land (owner 2026-10-13).
-export const STRIKE_REACH_PX = 35;
+// The blow connects hitbox-to-hitbox: from the attacker's hitbox front edge to
+// the target's hitbox near edge (owner 2026-10-13: revert the centre rule, the
+// slightly narrower character hitboxes are the fine-tuning).
+export const STRIKE_REACH_PX = 80;
 export const ATTACK_COOLDOWN_MS = 700; // recovery after a blow ends or a hit lands
 export const HIT_DAMAGE = 1;
 
 /**
- * True when the target's hitbox lies in front of the attacker and the blow
- * reaches close to its centre. Overlapping hitboxes are always in reach.
+ * True when the target's hitbox lies in front of the attacker, close enough
+ * to be struck. Overlapping hitboxes are always in reach.
  * @param {Actor} attacker
  * @param {Actor} target
  */
@@ -35,16 +35,17 @@ export function isStrikeInRange(attacker, target) {
     const aTop = attacker.y + a.y;
     const aBottom = aTop + a.h;
     const tLeft = target.x + t.x;
-    const tCenter = tLeft + t.w / 2;
+    const tRight = tLeft + t.w;
     const tTop = target.y + t.y;
     const tBottom = tTop + t.h;
 
     if (aBottom <= tTop || aTop >= tBottom) return false;
 
     const aCenter = aLeft + a.w / 2;
+    const tCenter = tLeft + t.w / 2;
     if ((tCenter - aCenter) * attacker.facing <= 0) return false; // target not in front
 
-    const gap = tCenter > aCenter ? tCenter - aRight : aLeft - tCenter;
+    const gap = tCenter > aCenter ? tLeft - aRight : aLeft - tRight;
     return gap <= STRIKE_REACH_PX;
 }
 

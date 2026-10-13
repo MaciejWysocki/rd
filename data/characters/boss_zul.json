@@ -6,7 +6,7 @@
     "walkFrameMs": 80,
     "attackFrameMs": 30,
     "deathRow": 2,
-    "hitbox": { "x": 50, "y": 120, "w": 50, "h": 25 },
+    "hitbox": { "x": 55, "y": 120, "w": 40, "h": 25 },
     "moves": [
         { "row": 1, "type": "headbutt" }
     ]
