@@ -22,10 +22,14 @@ export default class Boss extends Enemy {
      *                                  defeat sets the world flag `<id>_defeated`.
      * @param {object|null} options.trigger Conditions object for the fight start,
      *                                  e.g. { hasItem: ["beer"] } (State.matchesConditions).
+     * @param {object|null} options.idleOverlay Static pose shown instead of the
+     *                                  sprite's first frame while the boss waits
+     *                                  for its trigger ({ image, x, y }).
      */
-    constructor({ x, y, def, id, trigger = null }) {
+    constructor({ x, y, def, id, trigger = null, idleOverlay = null }) {
         super({ x, y, def, id });
         this.trigger = trigger;
+        this.idleOverlay = idleOverlay;
         this.fightStarted = false;
     }
 

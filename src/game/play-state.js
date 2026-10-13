@@ -50,7 +50,7 @@ export default class PlayState {
         this.victoryMs = null;    // counts up from the bum's defeat while the message shows
         this.gameOverSent = false;
         this._countedKills = new WeakSet();
-        this._highlightImages = new Map();
+        this._overlayImages = new Map();
     }
 
     onEnter() {
@@ -228,15 +228,22 @@ export default class PlayState {
             ctx.drawImage(section.background, 0, 0, ctx.canvas.width, ctx.canvas.height);
         }
 
+        const boss = section?.boss ?? null;
+        // A boss still waiting for its trigger shows its configured static pose
+        // ("idleOverlay") in the background instead of the sprite's first frame;
+        // the sprite takes over the moment the fight starts.
+        const bossIdlePose = boss && !boss.fightStarted && !boss.defeated ? boss.idleOverlay : null;
+        if (bossIdlePose) this._drawOverlay(bossIdlePose);
+
         const door = this._shopDoor(section);
         // Highlight while Rudy stands at the door and through the whole shop
         // sequence (enter, inside, exit).
         if (door && (this.shop.active || isPlayerUnderDoor(door, this.player))) {
-            this._drawShopHighlight(door);
+            this._drawOverlay(door.highlight);
         }
 
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
-        section?.boss?.draw(ctx);
+        if (boss && !bossIdlePose) boss.draw(ctx);
         this.player.draw(ctx);
 
         // HUD stays on top: hearts (1 per HP), coins (1 per money unit) and
@@ -269,18 +276,17 @@ export default class PlayState {
         ctx.restore();
     }
 
-    /** Draws the shop highlight overlay from the door's `highlight` config: image at its fixed position. */
-    _drawShopHighlight(door) {
-        const hl = door.highlight;
-        if (!hl) return;
-        let img = this._highlightImages.get(hl.image);
+    /** Draws a static overlay from a `{ image, x, y }` config (shop highlight, idle boss pose) at its fixed position. */
+    _drawOverlay(overlay) {
+        if (!overlay) return;
+        let img = this._overlayImages.get(overlay.image);
         if (!img) {
             img = new Image();
-            img.src = hl.image;
-            this._highlightImages.set(hl.image, img);
+            img.src = overlay.image;
+            this._overlayImages.set(overlay.image, img);
         }
         if (img.complete && img.naturalWidth > 0) {
-            this.ctx.drawImage(img, hl.x, hl.y);
+            this.ctx.drawImage(img, overlay.x, overlay.y);
         }
     }
 }

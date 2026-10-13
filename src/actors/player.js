@@ -15,6 +15,8 @@
 // the fly. At a shop door the same key enters the shop instead (PlayState
 // decides the priority). The hop is a draw offset only; the hitbox stays on the ground.
 //
+// Debug run: holding Shift (either one) moves Rudy 4x faster while walking.
+//
 // Holding an attack key freezes on the last attack frame; releasing it returns
 // to the walk cycle. A quick tap still plays the full strike, because release
 // only ends the attack after it has reached full extension — the point where
@@ -25,6 +27,14 @@
 
 import Actor from './actor.js';
 import { playJumpSound } from '../audio/audio.js';
+
+// Debug/testing aid: holding Shift (either one) moves Rudy
+// DEBUG_SPEED_MULTIPLIER times faster; the walk cycle scales with |vx|.
+const DEBUG_SPEED_MULTIPLIER = 4;
+
+function debugSpeedMultiplier(keyboard) {
+    return keyboard.isDown('ShiftLeft') || keyboard.isDown('ShiftRight') ? DEBUG_SPEED_MULTIPLIER : 1;
+}
 
 export default class Player extends Actor {
     constructor({ x, y, def }) {
@@ -93,14 +103,15 @@ export default class Player extends Actor {
         }
 
         const dir = keyboard.horizontal();
-        const dx = dir * this.walkSpeed * (dt / 1000);
+        const speed = this.walkSpeed * debugSpeedMultiplier(keyboard);
+        const dx = dir * speed * (dt / 1000);
 
         if (dir !== 0) {
             this.facing = dir;
             // A blocked move still animates: Rudy walks in place against walls and world ends.
             this.tryMove(dx, 0, solids);
         }
-        this.vx = dir * this.walkSpeed;
+        this.vx = dir * speed;
 
         super.update(dt);
     }
@@ -116,13 +127,14 @@ export default class Player extends Actor {
         }
 
         const dir = keyboard.horizontal();
-        const dx = dir * this.walkSpeed * (dt / 1000);
+        const speed = this.walkSpeed * debugSpeedMultiplier(keyboard);
+        const dx = dir * speed * (dt / 1000);
         if (dir !== 0) {
             this.facing = dir;
             this.tryMove(dx, 0, solids);
         }
         // Walk animation runs normally (scaled by |vx|) so pressing arrows keeps it cycling.
-        this.vx = dir * this.walkSpeed;
+        this.vx = dir * speed;
         super.update(dt);
     }
 

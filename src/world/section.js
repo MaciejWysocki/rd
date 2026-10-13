@@ -120,7 +120,14 @@ export default class Section {
         const def = await loadCharacterDef(config.type);
         if (!def) return null;
 
-        const boss = new Boss({ x: config.x, y: config.y, def, id: config.id, trigger: config.trigger });
+        const boss = new Boss({
+            x: config.x,
+            y: config.y,
+            def,
+            id: config.id,
+            trigger: config.trigger,
+            idleOverlay: config.idleOverlay ?? null,
+        });
         await boss.load();
         return boss;
     }
