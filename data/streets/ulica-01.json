@@ -36,7 +36,7 @@
             "boss": {
                 "id": "boss_zul",
                 "type": "boss_zul",
-                "x": 1100, "y": 598,
+                "x": 1450, "y": 598,
                 "idleOverlay": { "image": "assets/bg/ulica-01_02-zul.png", "x": 1427, "y": 573 },
                 "conditions": {
                     "flagsFalse": ["boss_zul_defeated"]

@@ -10,8 +10,8 @@
  * Combat (PLAN.md P0.2): every blow whose animation reached full extension is
  * resolved here via combat.js — the player's strike first, then the enemies'
  * and the boss's. The boss fight starts when its trigger conditions are met
- * (P0.4), its defeat shows the congratulatory message (P0.5) and Rudy's HP 0
- * hands over to the game over screen (P0.6).
+ * (P0.4), its defeat hands the game to the shared end screen with the victory
+ * result (P0.5) and Rudy's HP 0 with the defeat result (P0.6) — see end-state.js.
  */
 
 import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
@@ -24,10 +24,6 @@ const ENTRY_X_FROM_LEFT = 50;
 // Where Rudy appears when entering a section from the right: frame flush with the 1600px canvas edge (1600 - 150).
 const ENTRY_X_FROM_RIGHT = 1450;
 
-// The congratulatory message on the bum's defeat (P0.5): brief text, shown once.
-const VICTORY_MESSAGE_MS = 5000;
-const VICTORY_TEXT = 'Gratulacje! Pokonałeś żula!';
-
 export default class PlayState {
     /**
      * @param {object} deps
@@ -36,19 +32,19 @@ export default class PlayState {
      * @param {Player} deps.player
      * @param {Keyboard} deps.keyboard
      * @param {State} deps.state Global persistent state (HP, money, items shown in the HUD).
-     * @param {Function} deps.onGameOver Called once when Rudy's HP hits 0.
+     * @param {Function} deps.onGameEnd Called once with 'lost' (Rudy's HP hit 0)
+     *                                  or 'won' (the boss defeated).
      */
-    constructor({ ctx, world, player, keyboard, state, onGameOver }) {
+    constructor({ ctx, world, player, keyboard, state, onGameEnd }) {
         this.ctx = ctx;
         this.world = world;
         this.player = player;
         this.keyboard = keyboard;
         this.state = state;
-        this.onGameOver = onGameOver;
+        this.onGameEnd = onGameEnd;
         this.transitioning = false;
         this.shop = new ShopEntry(state);
-        this.victoryMs = null;    // counts up from the bum's defeat while the message shows
-        this.gameOverSent = false;
+        this.endSent = false; // the shared end screen is requested exactly once
         this._countedKills = new WeakSet();
         this._overlayImages = new Map();
     }
@@ -67,7 +63,6 @@ export default class PlayState {
         if (this.transitioning) return;
 
         this.state.playTimeMs += dt;
-        if (this.victoryMs !== null) this.victoryMs += dt;
 
         const section = this.world.currentSection;
         const solids = section ? section.boundaries : [];
@@ -100,10 +95,7 @@ export default class PlayState {
         const stats = this.state.stats[this.player.name];
         if (stats) stats.hp = this.player.hp;
 
-        if (this.player.defeated && !this.gameOverSent) {
-            this.gameOverSent = true;
-            this.onGameOver();
-        }
+        if (this.player.defeated) this._end('lost');
     }
 
     /**
@@ -136,13 +128,13 @@ export default class PlayState {
         for (const enemy of section.enemies) this._countKill(enemy);
         if (section.boss) this._countKill(section.boss);
 
-        // The bum's defeat: the congratulatory message (P0.5) and the world
-        // flag that keeps him down on later visits.
+        // The bum's defeat: the world flag that keeps him down on later visits
+        // and the shared end screen with the victory result (P0.5).
         const boss = section.boss;
-        if (boss?.defeated && this.victoryMs === null) {
-            this.victoryMs = 0;
+        if (boss?.defeated && !this.endSent) {
             this.state.setFlag(`${boss.id}_defeated`, true);
             this._syncAmbient(); // boss music off, section ambience back
+            this._end('won');
         }
     }
 
@@ -256,24 +248,13 @@ export default class PlayState {
             items: this.state.inventory,
             enemyHp: foe ? { hp: foe.hp, maxHp: foe.maxHp } : null,
         });
-
-        this._drawVictory();
     }
 
-    /** The congratulatory message shown briefly on the bum's defeat (P0.5). */
-    _drawVictory() {
-        if (this.victoryMs === null || this.victoryMs >= VICTORY_MESSAGE_MS) return;
-        const { ctx } = this;
-        ctx.save();
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const w = ctx.measureText(VICTORY_TEXT).width + 80;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-        ctx.fillRect((ctx.canvas.width - w) / 2, 40, w, 88);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(VICTORY_TEXT, ctx.canvas.width / 2, 84);
-        ctx.restore();
+    /** Hands the game to the shared end screen (end-state.js) exactly once. */
+    _end(result) {
+        if (this.endSent) return;
+        this.endSent = true;
+        this.onGameEnd(result);
     }
 
     /** Draws a static overlay from a `{ image, x, y }` config (shop highlight, idle boss pose) at its fixed position. */

@@ -4,7 +4,7 @@ import Player from './actors/player.js';
 import { loadCharacterDef } from './actors/character-defs.js';
 import Keyboard from './input/keyboard.js';
 import PlayState from './game/play-state.js';
-import GameOverState from './game/game-over-state.js';
+import EndState from './game/end-state.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -34,13 +34,15 @@ async function startFreshGame() {
     const player = new Player({ x: 50, y: 598, def: playerDef });
     await player.load();
 
-    game.changeState(new PlayState({
+    const playState = new PlayState({
         ctx, world, player, keyboard, state: game.state,
-        onGameOver: () => game.changeState(new GameOverState({
-            ctx, state: game.state, keyboard,
+        onGameEnd: result => game.changeState(new EndState({
+            ctx, state: game.state, keyboard, result,
+            drawScene: () => playState.draw(),
             onRestart: startFreshGame,
         })),
-    }));
+    });
+    game.changeState(playState);
 }
 
 await startFreshGame();
