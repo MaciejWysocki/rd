@@ -1,10 +1,12 @@
 {
     "name": "player",
     "sprite": "rudy_dres",
-    "hp": 6,
+    "hp": 5,
+    "money": 1,
     "walkSpeed": 180,
     "walkFrameMs": 80,
     "attackFrameMs": 17.5,
+    "recoveryMs": 0,
     "jumpKey": "ArrowUp",
     "jumpDurationMs": 600,
     "jumpHeightPx": 120,

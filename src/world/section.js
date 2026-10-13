@@ -12,6 +12,7 @@
  */
 
 import Enemy from '../actors/enemy.js';
+import Boss from '../actors/boss.js';
 import { loadCharacterDef } from '../actors/character-defs.js';
 
 export default class Section {
@@ -50,8 +51,8 @@ export default class Section {
         this.background = await this._loadBackground();
         this.boundaries = this._setBoundaries();
         this.npcs = this._spawnNpcs();
-        this.enemies = await this._spawnEnemies();
-        this.boss = this._checkBoss(state);
+        this.enemies = await this._spawnEnemies(state);
+        this.boss = await this._spawnBoss(state);
         this.interactions = this._loadInteractions();
 
         this.active = true;
@@ -88,28 +89,40 @@ export default class Section {
         return (this.config.npcs ?? []).map(n => ({ ...n }));
     }
 
-    async _spawnEnemies() {
+    async _spawnEnemies(state) {
         const enemies = [];
         for (const config of this.config.enemies ?? []) {
             // Types without a character config file are not implemented yet and are skipped.
             const def = await loadCharacterDef(config.type);
             if (!def) continue;
-            const enemy = new Enemy({ x: config.x, y: config.y, def });
+            const enemy = new Enemy({ x: config.x, y: config.y, def, id: config.id });
             await enemy.load();
+            // A kill is persisted in the global State: on re-entry the corpse is
+            // still lying where it fell instead of a fresh enemy appearing.
+            const corpse = state.getDefeatedEnemy(config.id);
+            if (corpse) enemy.spawnDefeated(corpse);
             enemies.push(enemy);
         }
         return enemies;
     }
 
-    _checkBoss(state) {
-        const boss = this.config.boss;
-        if (!boss) return null;
+    /**
+     * Spawns the section boss when its conditions (flags + carried items) pass.
+     * The boss stands idle until its fight trigger is met (see boss.js) — the
+     * trigger is evaluated by the gameplay state, not here.
+     */
+    async _spawnBoss(state) {
+        const config = this.config.boss;
+        if (!config) return null;
+        if (!state.matchesConditions(config.conditions)) return null;
 
-        const { flagsTrue = [], flagsFalse = [] } = boss.conditions ?? {};
-        const trueOk = flagsTrue.every(flag => Boolean(state.getFlag(flag)));
-        const falseOk = flagsFalse.every(flag => !state.getFlag(flag));
+        // Types without a character config file are not implemented yet and are skipped.
+        const def = await loadCharacterDef(config.type);
+        if (!def) return null;
 
-        return trueOk && falseOk ? { ...boss } : null;
+        const boss = new Boss({ x: config.x, y: config.y, def, id: config.id, trigger: config.trigger });
+        await boss.load();
+        return boss;
     }
 
     _loadInteractions() {

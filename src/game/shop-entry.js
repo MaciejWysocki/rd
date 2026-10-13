@@ -9,10 +9,17 @@
  *   exit   - reappears at the door, facing left, slightly above the line,
  *            walks back left at walking speed and settles onto the line (EXIT_MS)
  * Enter and exit cover the same distance, so Rudy ends where he started.
+ *
+ * The visit is money-driven. With at least one coin he buys a beer: the door's
+ * `sound` plays while he is inside and, the moment he comes out, the beer lands
+ * in the inventory and 1 coin goes off — both counters change at the same
+ * instant. Broke (no coins), the door's `soundNoMoney` plays instead, he only
+ * stays inside for NO_MONEY_INSIDE_MS and nothing else happens.
  */
 
 const ENTER_MS = 1000;
 const INSIDE_MS = 3000;
+const NO_MONEY_INSIDE_MS = 1000;
 const EXIT_MS = 1000;
 const ENTER_LIFT_PX = 30;   // how far Rudy rises while walking in
 const EXIT_OFFSET_PX = 30;  // how far above the line Rudy reappears
@@ -31,32 +38,33 @@ export function isPlayerUnderDoor(door, player) {
 }
 
 export default class ShopEntry {
-    constructor() {
+    /** @param {State} state Global persistent state (money is spent here). */
+    constructor(state) {
+        this.state = state;
         this.active = false;
         this.phase = null;
         this.elapsed = 0;
         this.player = null;
         this.sound = null;
+        this.buying = false;
+        this.insideMs = INSIDE_MS;
         this.baseY = 0;
         this.startX = 0;
         this.shift = 0;
     }
 
     /**
-     * @param {{x:number,y:number,w:number,h:number,sound:string}} door
+     * @param {{x:number,y:number,w:number,h:number,sound:string,soundNoMoney:string}} door
      * @param {Player} player
      */
     start(door, player) {
         this.active = true;
         this.player = player;
-        // Create and unlock the element inside the key press (muted). Browsers can block
-        // play() started later from a fresh element; _beginInside() then unmutes and plays it.
-        this.sound = new Audio(door.sound);
-        // this.sound.muted = true;
-        // this.sound.play().catch(() => {});
-        // this.sound.pause();
-        // this.sound.currentTime = 0;
-        // this.sound.muted = false;
+        // With coins Rudy buys a beer (door.sound); broke, he is turned away
+        // quickly (door.soundNoMoney) and nothing else happens.
+        this.buying = this.state.money > 0;
+        this.insideMs = this.buying ? INSIDE_MS : NO_MONEY_INSIDE_MS;
+        this.sound = new Audio(this.buying ? door.sound : door.soundNoMoney);
         this.baseY = player.y;
         this.startX = player.x;
         // Short step: Rudy shifts SHIFT_PX on the way in and returns the same distance on the way out.
@@ -80,7 +88,7 @@ export default class ShopEntry {
             player.animateWalk(dt, player.walkSpeed);
             if (this.elapsed >= ENTER_MS) this._beginInside();
         } else if (this.phase === PHASE_INSIDE) {
-            if (this.elapsed >= INSIDE_MS) this._beginExit();
+            if (this.elapsed >= this.insideMs) this._beginExit();
         } else {
             const t = clamp01(this.elapsed / EXIT_MS);
             player.x = this.startX + this.shift * (1 - t);
@@ -98,17 +106,23 @@ export default class ShopEntry {
         this.sound.play().catch(e => console.warn('shop sound failed:', e));
     }
 
+    /** Rudy reappears at the door — the beer appears and the coin goes, same moment. */
     _beginExit() {
         const { player } = this;
         this.phase = PHASE_EXIT;
         this.elapsed = 0;
         player.hidden = false;
         player.facing = -1;
+        if (this.buying) {
+            this.state.addItem('beer', { id: 'beer', name: 'Piwo' });
+            this.state.addMoney(-1);
+        }
     }
 
     _finish() {
         this.active = false;
         this.phase = null;
+        this.buying = false;
         this.player.y = this.baseY;
         this.player.hidden = false;
         this.player.vx = 0;

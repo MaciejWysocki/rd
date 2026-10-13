@@ -23,14 +23,14 @@ Companion docs: [AGENTS.md](AGENTS.md) (context & conventions — read first), [
 
 | Phase | Scope | Progress | Status |
 |---|---|---|---|
-| 🧪 0 | PoC — mechanics test bed (**PRIORITY**) | 1/8 | 🔄 |
+| 🧪 0 | PoC — mechanics test bed (**PRIORITY**) | 8/8 | ✅ |
 | ⚔️ 1 | Full combat system | 0/4 | ⬜ |
 | 📜 2 | Questing & world-state engine | 0/3 | ⬜ |
 | 🚶 3 | NPCs & dialogue | 0/2 | ⬜ |
 | 👑 4 | Boss framework, audio layering, UI menu | 0/3 | ⬜ |
-| 🧰 5 | Expansion, polish & stamina | 0/3 | ⬜ |
+| 🧰 5 | Expansion & polish | 0/2 | ⬜ |
 
-Overall: ⬜ — nothing of this plan implemented yet (a pre-plan baseline exists, see AGENTS.md "Current status").
+Overall: 🔄 — **Phase 0 (PoC) complete and verified in the browser (2026-10-12)**: trading single blows with HP/defeat, the money-driven shop with `beer` → inventory, the beer-triggered bum boss (`boss_zul`) with intro + boss music, the congratulatory message on his defeat, the game over screen (stats + death music + restart) and the HUD (hearts / coins / item rows). Next up: Phase 1 (full combat system) — P1.1.
 
 ## 🔒 Locked design decisions (owner; includes answers from 2026-10-11)
 
@@ -57,12 +57,11 @@ Overall: ⬜ — nothing of this plan implemented yet (a pre-plan baseline exist
 - **HP is a character parameter; HP 0 = defeat.**
 - **Player defeat → game over screen**: statistics + **death music** in the background + **restart button** (restarts a fresh game).
 - **No saves, no saving capability** — game state is session-only. ⚠ *This supersedes the earlier expectation "mission status saved in the browser + reset option"; if persistence is wanted again later, the owner must say so.*
-- Blood is a visual effect only; defeated characters **lie on the ground until the player leaves the section** (existing `Section.enter()`/`leave()` semantics).
+- Blood is a visual effect only; defeated characters **lie on the ground and persist across section visits** — the kill is recorded in the global `State` (`defeatedEnemies`, session-only) and the corpse reappears where it fell (owner 2026-10-13).
 - **No XP, no leveling.** Progression and items are tied to missions; **each mission gives a slight stat boost** (`level`/`experience` in `State.stats` are dead weight — remove them, P0.7).
-- **Stamina — later version, NOT for the PoC**: depends on character statistics; attacking hard slows movement, with recovery after waiting a moment.
 
 ### Items & economy
-- The shop is **fully automated and invisible** — its entrance is part of the background art. Entering plays an mp3; buying a beer (piwo) plays a **different mp3**. There is no shop UI at all.
+- The shop is **fully automated and invisible** — its entrance is part of the background art. The visit is **money-driven** (owner 2026-10-12): entering with coins plays `ulica-01_01-sklep.mp3` (the beer purchase) and the moment he **comes out of the shop the beer appears in the inventory and the coin disappears — same instant** (owner 2026-10-12, both HUD rows change together); entering with no coins plays `ulica-01-01-sklep2.mp3` and sends the player back out after **1 second** (no other logic). There is no shop UI at all.
 - **Mission items** stay in the inventory for the duration of the task (e.g. documents taken from someone and delivered elsewhere).
 - Items can drive the world: **possessing beer triggers the bum boss to spawn in another section**.
 
@@ -89,16 +88,15 @@ Overall: ⬜ — nothing of this plan implemented yet (a pre-plan baseline exist
 
 ### UI
 - **Game over screen**: statistics + death music + restart button (see Health).
-- **Objectives / HP / other information: TBD through testing** — the PoC must present some minimal feedback so the owner can evaluate during playtests; no final placement/layout is decided yet.
+- **HP / money: top-left HUD** (owner decision 2026-10-12) — hearts (one `assets/hud/hp.png` per 1 HP) and coins below (one `assets/hud/money.png` per 5 PLN coin); **objectives / other information remain TBD through testing** (P0.8 experiment).
 - A **collapsible menu** at the side/corner: stats, list of completed missions, current "street mission" status, and a **game timer**. Completing the street shows a **congratulatory message** (Phase 4).
 
 ## ✅ Former "Open decisions" — answered (owner, 2026-10-11)
 
 1. **Player defeat** → game over screen with statistics, death music in the background, and a restart button. **No saves, no saving capability.** (⚠ supersedes the earlier "save in browser + reset" expectation — see flag above.)
 2. **Combat timing** → tie buffer very low, **~100 ms**, counted from the **end of the attack animation (full stretch)**. Player and enemies have **different movement and attack speeds**. Jump and retreat are **not buffered**; the hitbox is checked at the finish of the attack animation — dodge before the finish and you are not hit.
-3. **Stamina** → later version, not for PoC; depends on character statistics; slows movement with recovery time after waiting a moment.
-4. **Shop** → fully automated and invisible; the entrance is part of the background; entering plays an mp3 and buying beer (piwo) plays a different mp3.
-5. **Objectives / HP / info display** → subject of testing; the best solution is yet to be discovered (treated as an experiment in P0.8).
+3. **Shop** → fully automated and invisible; the entrance is part of the background; entering plays an mp3 and buying beer (piwo) plays a different mp3.
+4. **Objectives / HP / info display** → subject of testing; the best solution is yet to be discovered (treated as an experiment in P0.8).
 
 ## 🧪 Phase 0 — PoC: two sections, mechanics test bed (PRIORITY)
 
@@ -108,30 +106,31 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Files: `data/characters/*.json` (`player`, `lysyblokers`, `boss_zul`), `src/actors/character-defs.js`, `src/actors/actor.js`, `src/actors/player.js`, `src/actors/enemy.js`, `src/main.js`.
   - Move set per character: `{ key, row, type: punch|kick|headbutt }` (4 frames per move row; `"alternate": true` alternates the row's two 4-frame groups on every other attack — Rudy's punch: 0–3 / 4–7 hands); walk stays row 0 (8 frames); per-character movement and attack speed parameters; player config also carries `jumpKey`/`jumpDurationMs`/`jumpHeightPx`. PoC moves: Rudy → punch (row 1), `lysyblokers` → headbutt, `boss_zul` → headbutt.
   - Acceptance (verified in browser 2026-10-12): the game runs on configs alone; changing a move's key/row/type or a character's speeds is a JSON-only edit.
-- [ ] ⬜ **P0.2 — Simple combat (trading single blows)**
-  - Files: `src/actors/*`, `src/game/play-state.js`.
-  - First-to-strike lands the hit; damage applies at the finish of the attack animation; HP is a few points counting down; HP 0 → character defeated, lying on the ground until section exit.
-  - Acceptance: Rudy can beat `lysyblokers`; Rudy can be defeated (→ P0.6 game over screen).
-- [ ] ⬜ **P0.3 — Automated invisible shop (beer)**
-  - Files: `src/game/shop-entry.js`, `src/game/play-state.js`, street JSON.
-  - Walking into the shop (entrance is part of the background) plays the entry mp3 (`assets/sounds/ulica-01_01-sklep.mp3`); buying beer (piwo) plays a second mp3; `beer` lands in the inventory. No UI.
-  - Acceptance: both mp3s heard in sequence during one shop visit; inventory holds `beer` afterwards.
-- [ ] ⬜ **P0.4 — Conditional boss (`boss_zul`, the bum) triggered by beer**
-  - Files: street JSON (section 02 `boss` → `boss_zul` with item condition), `src/world/section.js`, new boss behavior under `src/actors/`.
-  - Boss conditions extend from flags to **items** (`hasItem: ["beer"]`). Without beer: stands idle, no reaction. With beer: the `boss-intro` audio (by convention) + boss music + the fight starts.
-  - Acceptance: both paths observable in-game.
-- [ ] ⬜ **P0.5 — Victory message**
-  - On boss defeat: congratulatory message (brief text).
-  - Acceptance: appears once, exactly on the bum's defeat.
-- [ ] ⬜ **P0.6 — Game over screen**
-  - On Rudy's HP 0: game over screen with **statistics** + **death music** in the background + **restart button** (fresh game). No save/load anywhere.
-  - Acceptance: defeat → screen with stats and music; the button restarts the game cleanly.
-- [ ] ⬜ **P0.7 — Config cleanup**
-  - Street JSON reflects the PoC (boss = `bum`, shop sells beer); remove `level`/`experience` from `State.stats` (no XP/leveling).
-  - Acceptance: clean load with only PoC content active.
-- [ ] ⬜ **P0.8 — Minimal in-game info display (experiment)**
-  - Show minimal HP / objective feedback during play. Placement is deliberately experimental — the owner decides after playtesting (see UI decision above).
-  - Acceptance: the owner can evaluate an info display during PoC playtests.
+- [x] ✅ **P0.2 — Simple combat (trading single blows)** *(done + verified in browser 2026-10-12)*
+  - Files: `src/actors/*` (new `combat.js`), `src/game/play-state.js`.
+  - First-to-strike lands the hit; damage applies at the finish of the attack animation; HP is a few points counting down; HP 0 → character defeated, lying on the ground until section exit. A landed hit interrupts the defender's blow. Recovery is per character (`recoveryMs`) — **the player has none: every Space press is a punch** (owner 2026-10-12, no player delays); enemies hold the full-stretch frame (`attackHoldMs`) before recovering.
+  - Acceptance (verified 2026-10-12): Rudy beat `lysyblokers` (3 blows, retreat between strikes); Rudy was defeated by him (→ P0.6 screen). Damage is observable at full extension.
+- [x] ✅ **P0.3 — Automated invisible shop (beer)** *(done + verified in browser 2026-10-12)*
+  - Files: `src/game/shop-entry.js`, `src/game/play-state.js`, street JSON (`sound`, `soundNoMoney`), `src/render/hud.js`.
+  - **Money-driven** (owner instruction 2026-10-12, supersedes the earlier "different mp3 after buying beer" wording): entering with coins plays the purchase mp3 (`assets/sounds/ulica-01_01-sklep.mp3`); entering with no coins plays `ulica-01-01-sklep2.mp3`, keeps the player inside only **1 second** and exits — nothing else. No UI.
+  - Done (owner 2026-10-12): the moment Rudy **comes out of the shop**, the `beer` appears in the inventory and the coin disappears — **same instant** (both HUD rows change together).
+  - Acceptance (verified 2026-10-12): visit with a coin → purchase jingle + beer/coin swap at the coming-out moment; the next visit broke → second jingle + exit after 1 second. Inventory holds `beer` afterwards.
+- [x] ✅ **P0.4 — Conditional boss (`boss_zul`, the bum) triggered by beer** *(done + verified in browser 2026-10-12)*
+  - Files: street JSON (section 02 `boss`), `src/world/section.js`, `src/actors/boss.js`, `src/game/play-state.js`.
+  - Boss conditions extend from flags to **items** (`hasItem: ["beer"]`): `conditions` gates the spawn (evaluated by `State.matchesConditions`), `trigger` gates the fight. Without beer: stands idle, no reaction (and cannot be struck). With beer: the `boss-intro` audio (by convention) + boss music + the fight starts. Defeat sets the world flag `<id>_defeated` so he stays down on later visits.
+  - Acceptance (verified 2026-10-12): both paths observable in-game (no beer → idle bum, punches whiff; with beer → fight starts and he attacks).
+- [x] ✅ **P0.5 — Victory message** *(done + verified in browser 2026-10-12)*
+  - On boss defeat: congratulatory message (brief text, shown once for 5 s).
+  - Acceptance (verified 2026-10-12): "Gratulacje! Pokonałeś żula!" appears once, exactly on the bum's defeat.
+- [x] ✅ **P0.6 — Game over screen** *(done + verified in browser 2026-10-12)*
+  - On Rudy's HP 0: game over screen with **statistics** (game time, defeated enemies, coins) + **death music** (`game-over.mp3`, optional by convention) + **restart button** (also Enter/Space) that starts a fresh game (`State.resetForNewGame` rebuilds everything). No save/load anywhere.
+  - Acceptance (verified 2026-10-12): defeat → screen with stats and music; the button restarts the game cleanly (Rudy at the start, 5 HP, 1 coin, empty inventory).
+- [x] ✅ **P0.7 — Config cleanup** *(done + verified in browser 2026-10-12)*
+  - Street JSON reflects the PoC (boss = the bum on the ground strip with `conditions` + `trigger`; shop sells beer; the unused `door` example is out); `level`/`experience` were already gone from `State.stats` (no XP/leveling) — confirmed absent.
+  - Acceptance (verified 2026-10-12): clean load with only PoC content active.
+- [x] ✅ **P0.8 — Minimal in-game info display (experiment)** *(HP + money HUD done 2026-10-12; item rows added + verified 2026-10-12)*
+  - Show minimal HP / objective feedback during play. **HP/money placement decided by the owner (2026-10-12)**: top-left corner — hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per coin). **Items get their own row below the coins** (owner: beer as a 3rd HUD row) — one `assets/hud/<itemId>.png` icon per unit; empty rows collapse. The rest stays experimental, owner evaluates during playtests.
+  - Acceptance (verified 2026-10-12): the owner can evaluate an info display during PoC playtests (hearts → coins → item rows observed in-game).
 
 ## ⚔️ Phase 1 — Full combat system
 
@@ -145,8 +144,8 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
   - Acceptance: two characters with different move sets and speeds fight correctly against each other.
 - [ ] ⬜ **P1.4 — Blood VFX + corpse polish**
-  - Blood as a visual effect; defeated characters remain lying until section exit (reset on `leave()`).
-  - Acceptance: blood shows on hits; corpses persist until the player leaves the section.
+  - Blood as a visual effect; corpses already persist where they fell across section visits (kill recorded in the game state — owner 2026-10-13); this task polishes the look.
+  - Acceptance: blood shows on hits; corpses lie where they fell on re-entry.
 
 ## 📜 Phase 2 — Questing & world-state engine
 
@@ -181,11 +180,8 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Ambient → section music → boss music (highest wins); menu with stats, completed missions, street-mission status, game timer; congratulatory message on completing the street.
   - Acceptance: audio switches layers correctly during play; menu shows live state; street completion shows the message.
 
-## 🧰 Phase 5 — Expansion, polish & stamina
+## 🧰 Phase 5 — Expansion & polish
 
-- [ ] ⬜ **P5.1 — Stamina system (later version)**
-  - Driven by character statistics; hard attacking slows movement; recovery after waiting a moment.
-  - Acceptance: visible slowdown with sustained attacking, regeneration after a pause.
 - [ ] ⬜ **P5.2 — Content expansion**
   - More sections and streets via `data/streets/<street>/` directories (target layout in AGENTS.md); background photo crop/scale for the flat bottom strip.
   - Acceptance: a new section is addable as files only; a new street loads from its own directory.

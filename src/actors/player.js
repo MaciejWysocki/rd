@@ -17,11 +17,14 @@
 //
 // Holding an attack key freezes on the last attack frame; releasing it returns
 // to the walk cycle. A quick tap still plays the full strike, because release
-// only ends the attack after it has reached full extension (the point where
-// combat resolves the hit — PLAN.md P0.2).
+// only ends the attack after it has reached full extension — the point where
+// combat.js resolves the hit. **Every press is a punch** (owner 2026-10-12):
+// the player has no recovery between blows (`recoveryMs: 0` in the config) and
+// presses made during a blow queue up and fire right after it — nothing is
+// dropped, there are no delays.
 
 import Actor from './actor.js';
-import { playAttackSound, playJumpSound } from '../audio/audio.js';
+import { playJumpSound } from '../audio/audio.js';
 
 export default class Player extends Actor {
     constructor({ x, y, def }) {
@@ -32,6 +35,7 @@ export default class Player extends Actor {
         this.jumpHeightPx = def.jumpHeightPx ?? 120;
         this.jumping = false;
         this.jumpElapsed = 0;
+        this.moveQueue = []; // presses waiting for the current blow to end
     }
 
     /**
@@ -40,6 +44,13 @@ export default class Player extends Actor {
      * @param {Array<{x:number,y:number,w:number,h:number}>} solids Section boundaries.
      */
     update(dt, keyboard, solids) {
+        if (this.defeated) {
+            this.vx = 0;
+            super.update(dt); // the fall animation keeps playing
+            return;
+        }
+        this.attackCooldownMs = Math.max(0, this.attackCooldownMs - dt);
+
         if (this.jumping) {
             this._updateJump(dt, keyboard, solids);
             return;
@@ -52,15 +63,13 @@ export default class Player extends Actor {
             this.endAttack();
         }
 
-        // Consume move presses every frame so presses made during an attack don't fire later.
-        let pressedMove = null;
+        // Every press is a punch: queue the presses and fire them one by one
+        // as soon as the current blow ends. No drops, no recovery delays.
         for (const move of this.moves) {
-            if (move.key && keyboard.consumePress(move.key)) pressedMove = move;
+            if (move.key && keyboard.consumePress(move.key)) this.moveQueue.push(move);
         }
-        if (pressedMove && !this.attacking) {
-            this.startAttack(pressedMove);
-            // Hit/miss resolution lands with combat (PLAN.md P0.2); today every attack misses.
-            playAttackSound(this.name, 'miss');
+        if (!this.attacking && this.attackCooldownMs <= 0 && this.moveQueue.length > 0) {
+            this.startAttack(this.moveQueue.shift());
         }
 
         if (this.attacking) {
@@ -121,6 +130,11 @@ export default class Player extends Actor {
     animateWalk(dt, vx) {
         this.vx = vx;
         super.update(dt);
+    }
+
+    /** Not hittable while hidden inside a shop. */
+    canBeHit() {
+        return !this.hidden && super.canBeHit();
     }
 
     draw(ctx) {

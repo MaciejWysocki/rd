@@ -34,12 +34,16 @@ export function playJumpSound(who) {
 }
 
 let ambient = null;
+let bossMusic = null;
+let gameOverMusic = null;
 
 /**
  * Starts the looping `<street>_<section>-ambient` track for a section,
- * replacing any track already playing. Missing file = silence.
+ * replacing any track already playing (the boss layer drops with it).
+ * Missing file = silence.
  */
 export function startAmbient(street, section) {
+    stopBossMusic();
     stopAmbient();
     ambient = play(`${street}_${section}-ambient`, { loop: true });
 }
@@ -53,4 +57,35 @@ export function stopAmbient() {
 /** Plays `boss-intro` when a boss fight starts (called by the boss intro sequence). */
 export function playBossIntro() {
     play('boss-intro');
+}
+
+/**
+ * Starts the looping `boss-music` track for a boss fight. It replaces the
+ * ambient layer (highest active layer wins — audio layering comes in P4.3).
+ * Missing file = silence.
+ */
+export function startBossMusic() {
+    stopAmbient();
+    stopBossMusic();
+    bossMusic = play('boss-music', { loop: true });
+}
+
+export function stopBossMusic() {
+    if (!bossMusic) return;
+    bossMusic.pause();
+    bossMusic = null;
+}
+
+/** Death music (`game-over`) looping behind the game over screen. */
+export function playGameOverMusic() {
+    stopAmbient();
+    stopBossMusic();
+    stopGameOverMusic();
+    gameOverMusic = play('game-over', { loop: true });
+}
+
+export function stopGameOverMusic() {
+    if (!gameOverMusic) return;
+    gameOverMusic.pause();
+    gameOverMusic = null;
 }

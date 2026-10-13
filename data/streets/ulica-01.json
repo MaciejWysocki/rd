@@ -20,6 +20,7 @@
                     "id": "sklep_1", "type": "shop",
                     "x": 450, "y": 433, "w": 100, "h": 180,
                     "sound": "assets/sounds/ulica-01_01-sklep.mp3",
+                    "soundNoMoney": "assets/sounds/ulica-01_01-sklep2.mp3",
                     "highlight": { "image": "assets/bg/ulica-01_01-sklep.png", "x": 158, "y": 288 }
                 }
             ]
@@ -32,24 +33,18 @@
                 { "x": 0,   "y": 560, "w": 800, "h": 40 },
                 { "x": 1550, "y": 0,  "w": 50,  "h": 800 }
             ],
-            "enemies": null,
             "boss": {
                 "id": "boss_zul",
                 "type": "boss_zul",
-                "x": 400, "y": 200,
+                "x": 1100, "y": 598,
                 "conditions": {
-                    "flagsTrue": ["quest_rudy_started"],
                     "flagsFalse": ["boss_zul_defeated"]
+                },
+                "trigger": {
+                    "hasItem": ["beer"]
                 }
             },
-            "interactions": [
-                {
-                    "id": "drzwi_1",
-                    "type": "door",
-                    "x": 40, "y": 260, "w": 40, "h": 80,
-                    "action": { "type": "goToRoute", "index": 0 }
-                }
-            ]
+            "interactions": []
         }
     }
 }

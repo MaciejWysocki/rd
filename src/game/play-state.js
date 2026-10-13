@@ -6,15 +6,27 @@
  * Gameplay state: draws the current section background, its enemies and the player,
  * and feeds input and section boundaries into the actors each frame.
  * Walking under a shop door highlights it; Up then starts a scripted entry (see shop-entry.js).
+ *
+ * Combat (PLAN.md P0.2): every blow whose animation reached full extension is
+ * resolved here via combat.js — the player's strike first, then the enemies'
+ * and the boss's. The boss fight starts when its trigger conditions are met
+ * (P0.4), its defeat shows the congratulatory message (P0.5) and Rudy's HP 0
+ * hands over to the game over screen (P0.6).
  */
 
 import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
-import { startAmbient } from '../audio/audio.js';
+import { startAmbient, startBossMusic, playBossIntro } from '../audio/audio.js';
+import { drawHud } from '../render/hud.js';
+import { resolveStrike, isStrikeInRange } from '../actors/combat.js';
 
 // Where Rudy appears when entering a section from the left; matches his start X in main.js.
 const ENTRY_X_FROM_LEFT = 50;
 // Where Rudy appears when entering a section from the right: frame flush with the 1600px canvas edge (1600 - 150).
 const ENTRY_X_FROM_RIGHT = 1450;
+
+// The congratulatory message on the bum's defeat (P0.5): brief text, shown once.
+const VICTORY_MESSAGE_MS = 5000;
+const VICTORY_TEXT = 'Gratulacje! Pokonałeś żula!';
 
 export default class PlayState {
     /**
@@ -23,14 +35,21 @@ export default class PlayState {
      * @param {WorldManager} deps.world
      * @param {Player} deps.player
      * @param {Keyboard} deps.keyboard
+     * @param {State} deps.state Global persistent state (HP, money, items shown in the HUD).
+     * @param {Function} deps.onGameOver Called once when Rudy's HP hits 0.
      */
-    constructor({ ctx, world, player, keyboard }) {
+    constructor({ ctx, world, player, keyboard, state, onGameOver }) {
         this.ctx = ctx;
         this.world = world;
         this.player = player;
         this.keyboard = keyboard;
+        this.state = state;
+        this.onGameOver = onGameOver;
         this.transitioning = false;
-        this.shop = new ShopEntry();
+        this.shop = new ShopEntry(state);
+        this.victoryMs = null;    // counts up from the bum's defeat while the message shows
+        this.gameOverSent = false;
+        this._countedKills = new WeakSet();
         this._highlightImages = new Map();
     }
 
@@ -46,6 +65,9 @@ export default class PlayState {
 
     update(dt) {
         if (this.transitioning) return;
+
+        this.state.playTimeMs += dt;
+        if (this.victoryMs !== null) this.victoryMs += dt;
 
         const section = this.world.currentSection;
         const solids = section ? section.boundaries : [];
@@ -69,7 +91,103 @@ export default class PlayState {
             }
         }
 
-        for (const enemy of section?.enemies ?? []) enemy.update(dt, solids);
+        for (const enemy of section?.enemies ?? []) enemy.update(dt, solids, this.player);
+        section?.boss?.update(dt, solids, this.player);
+
+        this._checkBossTrigger(section);
+        this._resolveCombat(section);
+
+        const stats = this.state.stats[this.player.name];
+        if (stats) stats.hp = this.player.hp;
+
+        if (this.player.defeated && !this.gameOverSent) {
+            this.gameOverSent = true;
+            this.onGameOver();
+        }
+    }
+
+    /**
+     * The fight starts when the boss's trigger conditions are met (P0.4):
+     * e.g. carrying `beer` wakes the bum — intro audio, boss music, fight.
+     */
+    _checkBossTrigger(section) {
+        const boss = section?.boss;
+        if (!boss || boss.fightStarted || boss.defeated) return;
+        if (!this.state.matchesConditions(boss.trigger)) return;
+        boss.engage();
+        playBossIntro();
+        startBossMusic();
+    }
+
+    /**
+     * Resolves every blow whose attack animation has reached full extension
+     * (combat.js). The player's strike is resolved first — proper tie-break
+     * for simultaneous finishes comes with P1.1.
+     */
+    _resolveCombat(section) {
+        if (!section) return;
+
+        if (this.player.attacking && this.player.isAttackAtFullExtension() && !this.player.attackResolved) {
+            resolveStrike(this.player, this._pickStrikeTarget(section));
+        }
+
+        for (const enemy of section.enemies) this._resolveStrikeOf(enemy);
+        if (section.boss) this._resolveStrikeOf(section.boss);
+        for (const enemy of section.enemies) this._countKill(enemy);
+        if (section.boss) this._countKill(section.boss);
+
+        // The bum's defeat: the congratulatory message (P0.5) and the world
+        // flag that keeps him down on later visits.
+        const boss = section.boss;
+        if (boss?.defeated && this.victoryMs === null) {
+            this.victoryMs = 0;
+            this.state.setFlag(`${boss.id}_defeated`, true);
+            this._syncAmbient(); // boss music off, section ambience back
+        }
+    }
+
+    _resolveStrikeOf(enemy) {
+        if (enemy.defeated) return;
+        if (enemy.attacking && enemy.isAttackAtFullExtension() && !enemy.attackResolved) {
+            resolveStrike(enemy, this.player);
+        }
+    }
+
+    _countKill(enemy) {
+        if (!enemy.defeated || this._countedKills.has(enemy)) return;
+        this._countedKills.add(enemy);
+        const stats = this.state.stats[this.player.name];
+        if (stats) stats.kills = (stats.kills ?? 0) + 1;
+        // The corpse persists in the game state: still lying here on later visits.
+        this.state.markEnemyDefeated(enemy.id, enemy);
+    }
+
+    /** The hostile currently in fight mode (HUD shows its HP), or null. */
+    _fightingFoe(section) {
+        if (!section) return null;
+        for (const enemy of section.enemies) {
+            if (!enemy.defeated && enemy.isFighting(this.player)) return enemy;
+        }
+        const boss = section.boss;
+        if (boss && boss.isFighting()) return boss;
+        return null;
+    }
+
+    /** Nearest opponent the player's blow can reach right now, or null (whiff). */
+    _pickStrikeTarget(section) {
+        let best = null;
+        let bestDistance = Infinity;
+        const check = opponent => {
+            if (!opponent.canBeHit() || !isStrikeInRange(this.player, opponent)) return;
+            const distance = Math.abs(opponent.x - this.player.x);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = opponent;
+            }
+        };
+        for (const enemy of section.enemies) check(enemy);
+        if (section.boss) check(section.boss);
+        return best;
     }
 
     /** Returns 'right' or 'left' when Rudy's hitbox leaves the section through an open edge, otherwise null. */
@@ -118,7 +236,37 @@ export default class PlayState {
         }
 
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
+        section?.boss?.draw(ctx);
         this.player.draw(ctx);
+
+        // HUD stays on top: hearts (1 per HP), coins (1 per money unit) and
+        // carried items (1 icon per unit, e.g. the bought beer). While an enemy
+        // is in fight mode its HP shows as hearts in the top-right corner.
+        const foe = this._fightingFoe(section);
+        drawHud(ctx, {
+            hp: this.state.stats[this.player.name]?.hp ?? 0,
+            money: this.state.money,
+            items: this.state.inventory,
+            enemyHp: foe ? { hp: foe.hp, maxHp: foe.maxHp } : null,
+        });
+
+        this._drawVictory();
+    }
+
+    /** The congratulatory message shown briefly on the bum's defeat (P0.5). */
+    _drawVictory() {
+        if (this.victoryMs === null || this.victoryMs >= VICTORY_MESSAGE_MS) return;
+        const { ctx } = this;
+        ctx.save();
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(VICTORY_TEXT).width + 80;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillRect((ctx.canvas.width - w) / 2, 40, w, 88);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(VICTORY_TEXT, ctx.canvas.width / 2, 84);
+        ctx.restore();
     }
 
     /** Draws the shop highlight overlay from the door's `highlight` config: image at its fixed position. */
