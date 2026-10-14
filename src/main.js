@@ -38,6 +38,7 @@ async function startFreshGame() {
         ctx, world, player, keyboard, state: game.state,
         onGameEnd: result => game.changeState(new EndState({
             ctx, state: game.state, keyboard, result,
+            streetName: world.streetName,
             drawScene: () => playState.draw(),
             onRestart: startFreshGame,
         })),

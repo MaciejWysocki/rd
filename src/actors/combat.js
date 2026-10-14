@@ -26,8 +26,9 @@ export const HIT_DAMAGE = 1;
  * to be struck. Overlapping hitboxes are always in reach.
  * @param {Actor} attacker
  * @param {Actor} target
+ * @param {number} [reachPx] Reach override (e.g. the boss's vomit range).
  */
-export function isStrikeInRange(attacker, target) {
+export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
     const a = attacker.hitbox;
     const t = target.hitbox;
     const aLeft = attacker.x + a.x;
@@ -46,7 +47,7 @@ export function isStrikeInRange(attacker, target) {
     if ((tCenter - aCenter) * attacker.facing <= 0) return false; // target not in front
 
     const gap = tCenter > aCenter ? tLeft - aRight : aLeft - tRight;
-    return gap <= STRIKE_REACH_PX;
+    return gap <= reachPx;
 }
 
 /**

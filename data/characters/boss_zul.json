@@ -2,6 +2,7 @@
     "name": "boss_zul",
     "sprite": "boss_zul",
     "hp": 4,
+    "bloodOnTarget": false,
     "walkSpeed": 90,
     "walkFrameMs": 80,
     "attackFrameMs": 100,

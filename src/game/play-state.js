@@ -155,7 +155,10 @@ export default class PlayState {
     /** Resolves one blow (combat.js) and sprays blood where it landed. */
     _landStrike(attacker, target) {
         const outcome = resolveStrike(attacker, target);
-        if (outcome === 'hit') this.blood.spawn(target, target.x >= attacker.x ? 1 : -1);
+        // Only bloody attackers make the target bleed (bloodOnTarget, default true).
+        if (outcome === 'hit' && attacker.bloodOnTarget) {
+            this.blood.spawn(target, target.x >= attacker.x ? 1 : -1);
+        }
     }
 
     _countKill(enemy) {

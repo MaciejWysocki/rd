@@ -86,6 +86,9 @@ export default class Actor {
         this.attackResolved = false;
         this.attackCooldownMs = 0;
         this.recoveryMs = def.recoveryMs ?? ATTACK_COOLDOWN_MS;
+        // Whether this character's blows make the target bleed (owner 2026-10-15:
+        // boss_zul does not — `bloodOnTarget: false` in his config).
+        this.bloodOnTarget = def.bloodOnTarget !== false;
     }
 
     load() {

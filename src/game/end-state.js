@@ -7,15 +7,15 @@
 // panel takes over the frozen scene: a big result message ("PRZEGRAŁEŚ!" /
 // "GRATULACJE! WYGRAŁEŚ GRĘ!"), the session statistics from the global State
 // (game time, defeated enemies, HP and money left) and a restart button that
-// starts a fresh game (Enter/Space work too — the game is played on a keyboard).
-// On defeat the death music (`game-over.mp3`, optional by convention) plays
-// ONCE behind the panel — no loop: after it ends the panel stays silent (owner
-// 2026-10-14). On victory the panel is silent all along: every other audio
-// layer is already stopped when the game ends (play-state.js). There are no
-// saves anywhere: the restart rebuilds the whole game from the character
+// starts a fresh game — a click on the button or Enter; Space does NOT restart
+// (owner 2026-10-15: hitting Space while reading the win screen must not wipe
+// it). On defeat the death music (`game-over.mp3`) plays ONCE behind the panel;
+// on victory the victory jingle (`<street>-congratulations`) plays ONCE — no
+// loops: after either ends the panel stays silent (owner 2026-10-14/15). There
+// are no saves anywhere: the restart rebuilds the whole game from the character
 // config, exactly like booting it.
 
-import { playGameOverMusic, stopGameOverMusic } from '../audio/audio.js';
+import { playGameOverMusic, playCongratulations, stopAllAudio } from '../audio/audio.js';
 
 // The result panel: a rectangle of 2/3 of the screen, centered.
 const PANEL_SCALE = 2 / 3;
@@ -31,14 +31,16 @@ export default class EndState {
      * @param {State} deps.state   Global state — the statistics come from here.
      * @param {Keyboard} deps.keyboard
      * @param {'lost'|'won'} deps.result Which message the panel shows.
+     * @param {string} deps.streetName Street id — the victory jingle is `<street>-congratulations`.
      * @param {Function} deps.onRestart Starts a fresh game.
      * @param {Function|null} deps.drawScene Renders the frozen gameplay scene behind the panel.
      */
-    constructor({ ctx, state, keyboard, result, onRestart, drawScene = null }) {
+    constructor({ ctx, state, keyboard, result, streetName, onRestart, drawScene = null }) {
         this.ctx = ctx;
         this.state = state;
         this.keyboard = keyboard;
         this.result = result;
+        this.streetName = streetName;
         this.onRestart = onRestart;
         this.drawScene = drawScene;
         this.restarting = false;
@@ -46,21 +48,22 @@ export default class EndState {
     }
 
     onEnter() {
-        // Death music on defeat only — played once; on victory the panel is
-        // silent all along (every layer is stopped when the game ends).
+        // End-screen music, played ONCE (no loop): the death music on defeat,
+        // the victory jingle when the game is won.
         if (this.result === 'lost') playGameOverMusic();
+        else playCongratulations(this.streetName);
         this.ctx.canvas.addEventListener('click', this._onClick);
     }
 
     onExit() {
-        stopGameOverMusic();
+        stopAllAudio(); // the fresh game starts its own ambience (play-state.js)
         this.ctx.canvas.removeEventListener('click', this._onClick);
     }
 
-    /** The game is stopped: only the play-again button does anything. */
+    /** The game is stopped: only the play-again button (click or Enter) does anything. */
     update() {
         if (this.restarting) return;
-        if (this.keyboard.consumePress('Enter') || this.keyboard.consumePress('Space')) this._restart();
+        if (this.keyboard.consumePress('Enter')) this._restart();
     }
 
     draw() {
