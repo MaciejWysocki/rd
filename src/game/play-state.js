@@ -15,8 +15,9 @@
  */
 
 import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
-import { startAmbient, startBossMusic, playBossIntro } from '../audio/audio.js';
+import { startAmbient, startBossMusic, playBossIntro, stopAllAudio } from '../audio/audio.js';
 import { drawHud } from '../render/hud.js';
+import Blood from '../render/blood.js';
 import { resolveStrike, isStrikeInRange } from '../actors/combat.js';
 
 // Where Rudy appears when entering a section from the left; matches his start X in main.js.
@@ -45,6 +46,7 @@ export default class PlayState {
         this.transitioning = false;
         this.shop = new ShopEntry(state);
         this.endSent = false; // the shared end screen is requested exactly once
+        this.blood = new Blood();
         this._countedKills = new WeakSet();
         this._overlayImages = new Map();
     }
@@ -53,7 +55,11 @@ export default class PlayState {
         this._syncAmbient();
     }
 
-    /** (Re)starts the convention-based `<street>_<section>-ambient` loop for the current section. */
+    /**
+     * (Re)starts the looping ambience for the current section:
+     * `<street>_<section>-ambient`, or the default street ambience (`ambience.mp3`)
+     * when the section has no track of its own.
+     */
     _syncAmbient() {
         const section = this.world.currentSection;
         if (section) startAmbient(this.world.streetName, section.id);
@@ -88,6 +94,7 @@ export default class PlayState {
 
         for (const enemy of section?.enemies ?? []) enemy.update(dt, solids, this.player);
         section?.boss?.update(dt, solids, this.player);
+        this.blood.update(dt);
 
         this._checkBossTrigger(section);
         this._resolveCombat(section);
@@ -107,8 +114,9 @@ export default class PlayState {
         if (!boss || boss.fightStarted || boss.defeated) return;
         if (!this.state.matchesConditions(boss.trigger)) return;
         boss.engage();
-        playBossIntro();
         startBossMusic();
+        // The boss's introduction sentence plays on top of the fight music.
+        playBossIntro();
     }
 
     /**
@@ -120,7 +128,7 @@ export default class PlayState {
         if (!section) return;
 
         if (this.player.attacking && this.player.isAttackAtFullExtension() && !this.player.attackResolved) {
-            resolveStrike(this.player, this._pickStrikeTarget(section));
+            this._landStrike(this.player, this._pickStrikeTarget(section));
         }
 
         for (const enemy of section.enemies) this._resolveStrikeOf(enemy);
@@ -133,7 +141,6 @@ export default class PlayState {
         const boss = section.boss;
         if (boss?.defeated && !this.endSent) {
             this.state.setFlag(`${boss.id}_defeated`, true);
-            this._syncAmbient(); // boss music off, section ambience back
             this._end('won');
         }
     }
@@ -141,8 +148,14 @@ export default class PlayState {
     _resolveStrikeOf(enemy) {
         if (enemy.defeated) return;
         if (enemy.attacking && enemy.isAttackAtFullExtension() && !enemy.attackResolved) {
-            resolveStrike(enemy, this.player);
+            this._landStrike(enemy, this.player);
         }
+    }
+
+    /** Resolves one blow (combat.js) and sprays blood where it landed. */
+    _landStrike(attacker, target) {
+        const outcome = resolveStrike(attacker, target);
+        if (outcome === 'hit') this.blood.spawn(target, target.x >= attacker.x ? 1 : -1);
     }
 
     _countKill(enemy) {
@@ -201,6 +214,7 @@ export default class PlayState {
             if (step > 0) await this.world.next();
             else await this.world.prev();
             this.player.x = entryX;
+            this.blood.clear(); // transient, like the enemies: wiped with the section
             this._syncAmbient();
         } finally {
             this.transitioning = false;
@@ -237,6 +251,7 @@ export default class PlayState {
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
         if (boss && !bossIdlePose) boss.draw(ctx);
         this.player.draw(ctx);
+        this.blood.draw(ctx); // spray and stains, over the characters
 
         // HUD stays on top: hearts (1 per HP), coins (1 per money unit) and
         // carried items (1 icon per unit, e.g. the bought beer). While an enemy
@@ -250,10 +265,15 @@ export default class PlayState {
         });
     }
 
-    /** Hands the game to the shared end screen (end-state.js) exactly once. */
+    /**
+     * Hands the game to the shared end screen (end-state.js) exactly once.
+     * The game is over: the street goes silent — the death music (`game-over`,
+     * defeat only) plays once on the end screen itself (end-state.js).
+     */
     _end(result) {
         if (this.endSent) return;
         this.endSent = true;
+        stopAllAudio();
         this.onGameEnd(result);
     }
 

@@ -9,8 +9,11 @@
 // (game time, defeated enemies, HP and money left) and a restart button that
 // starts a fresh game (Enter/Space work too — the game is played on a keyboard).
 // On defeat the death music (`game-over.mp3`, optional by convention) plays
-// behind the panel. There are no saves anywhere: the restart rebuilds the
-// whole game from the character config, exactly like booting it.
+// ONCE behind the panel — no loop: after it ends the panel stays silent (owner
+// 2026-10-14). On victory the panel is silent all along: every other audio
+// layer is already stopped when the game ends (play-state.js). There are no
+// saves anywhere: the restart rebuilds the whole game from the character
+// config, exactly like booting it.
 
 import { playGameOverMusic, stopGameOverMusic } from '../audio/audio.js';
 
@@ -43,7 +46,8 @@ export default class EndState {
     }
 
     onEnter() {
-        // Death music on defeat only; on victory the ambience keeps playing.
+        // Death music on defeat only — played once; on victory the panel is
+        // silent all along (every layer is stopped when the game ends).
         if (this.result === 'lost') playGameOverMusic();
         this.ctx.canvas.addEventListener('click', this._onClick);
     }

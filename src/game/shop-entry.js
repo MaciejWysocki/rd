@@ -11,15 +11,16 @@
  * Enter and exit cover the same distance, so Rudy ends where he started.
  *
  * The visit is money-driven. With at least one coin he buys a beer: the door's
- * `sound` plays while he is inside and, the moment he comes out, the beer lands
- * in the inventory and 1 coin goes off — both counters change at the same
- * instant. Broke (no coins), the door's `soundNoMoney` plays instead, he only
- * stays inside for NO_MONEY_INSIDE_MS and nothing else happens.
+ * `sound` plays while he is inside and, 100 ms before he comes out, the beer
+ * lands in the inventory and 1 coin goes off — both counters change at the same
+ * instant (owner 2026-10-14). Broke (no coins), the door's `soundNoMoney` plays
+ * instead, he only stays inside for NO_MONEY_INSIDE_MS and nothing else happens.
  */
 
 const ENTER_MS = 1000;
 const INSIDE_MS = 3000;
 const NO_MONEY_INSIDE_MS = 1000;
+const EXCHANGE_LEAD_MS = 400; // the beer-for-coin exchange happens this long before the exit
 const EXIT_MS = 1000;
 const ENTER_LIFT_PX = 30;   // how far Rudy rises while walking in
 const EXIT_OFFSET_PX = 30;  // how far above the line Rudy reappears
@@ -47,6 +48,7 @@ export default class ShopEntry {
         this.player = null;
         this.sound = null;
         this.buying = false;
+        this.exchanged = false;
         this.insideMs = INSIDE_MS;
         this.baseY = 0;
         this.startX = 0;
@@ -63,6 +65,7 @@ export default class ShopEntry {
         // With coins Rudy buys a beer (door.sound); broke, he is turned away
         // quickly (door.soundNoMoney) and nothing else happens.
         this.buying = this.state.money > 0;
+        this.exchanged = false;
         this.insideMs = this.buying ? INSIDE_MS : NO_MONEY_INSIDE_MS;
         this.sound = new Audio(this.buying ? door.sound : door.soundNoMoney);
         this.baseY = player.y;
@@ -88,6 +91,11 @@ export default class ShopEntry {
             player.animateWalk(dt, player.walkSpeed);
             if (this.elapsed >= ENTER_MS) this._beginInside();
         } else if (this.phase === PHASE_INSIDE) {
+            // The money changes hands 100 ms before the exit: the beer appears
+            // and the coin goes just before Rudy comes out (both at once).
+            if (this.buying && !this.exchanged && this.elapsed >= this.insideMs - EXCHANGE_LEAD_MS) {
+                this._exchange();
+            }
             if (this.elapsed >= this.insideMs) this._beginExit();
         } else {
             const t = clamp01(this.elapsed / EXIT_MS);
@@ -106,17 +114,20 @@ export default class ShopEntry {
         this.sound.play().catch(e => console.warn('shop sound failed:', e));
     }
 
-    /** Rudy reappears at the door — the beer appears and the coin goes, same moment. */
+    /** Beer for a coin — both counters change at the same instant (100 ms before the exit). */
+    _exchange() {
+        this.exchanged = true;
+        this.state.addItem('beer', { id: 'beer', name: 'Piwo' });
+        this.state.addMoney(-1);
+    }
+
+    /** Rudy reappears at the door — the beer was already bought 100 ms before. */
     _beginExit() {
         const { player } = this;
         this.phase = PHASE_EXIT;
         this.elapsed = 0;
         player.hidden = false;
         player.facing = -1;
-        if (this.buying) {
-            this.state.addItem('beer', { id: 'beer', name: 'Piwo' });
-            this.state.addMoney(-1);
-        }
     }
 
     _finish() {

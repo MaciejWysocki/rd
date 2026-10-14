@@ -143,9 +143,9 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 - [ ] ⬜ **P1.3 — Move sets & per-character speeds**
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
   - Acceptance: two characters with different move sets and speeds fight correctly against each other.
-- [ ] ⬜ **P1.4 — Blood VFX + corpse polish**
-  - Blood as a visual effect; corpses already persist where they fell across section visits (kill recorded in the game state — owner 2026-10-13); this task polishes the look.
-  - Acceptance: blood shows on hits; corpses lie where they fell on re-entry.
+- [x] ✅ **P1.4 — Blood VFX + corpse polish** *(done + verified in browser 2026-10-14)*
+  - Blood as a visual effect (`src/render/blood.js`, owner 2026-10-14): every landed blow sprays 3×3 px red squares out of the struck character; they fly away from the blow, arc down and land on the ground line (the struck character's feet), staining it until the section is left. Corpses already persist where they fell across section visits (kill recorded in the game state — owner 2026-10-13).
+  - Acceptance (verified 2026-10-14): blood shows on hits; corpses lie where they fell on re-entry.
 
 ## 📜 Phase 2 — Questing & world-state engine
 
@@ -190,7 +190,7 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Acceptance: passersby appear and react variably.
 
 ## 📎 Asset dependencies (owner-supplied; code picks by naming convention / config paths)
-- Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>_<section>-ambient` (loop), `boss-intro`. **Every audio file is optional — a missing file means silence.**
+- Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>_<section>-ambient` (loop; falls back to the default street ambience `ambience.mp3` — owner 2026-10-14), `boss-intro` (the boss's introduction sentence, played once on top of `boss-music`), `boss-music` (loop), `game-over` (played once on defeat, no loop). **Every audio file is optional — a missing file means silence.**
 - **PoC**: `player-jump.mp3`, `player-attack-hit.mp3`, `lysyblokers-attack-miss/-hit.mp3`, the "beer bought" (piwo) mp3, death music (`game-over.mp3`), `boss-intro.mp3`, boss music (`boss-music.mp3`). (`player-attack-miss.mp3` and `ulica-01_01-sklep.mp3` exist.)
 - **Later**: `ulica-01_01-ambient`-style street ambient loops, section music, catchphrase mp3s, dialogue mp3s.
 - **Sprites**: headbutt row for `lysyblokers`, `boss_zul` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row).

@@ -8,11 +8,12 @@
 // the patrol range.
 //
 // Combat (PLAN.md P0.2): once the player enters the aggro range the enemy
-// breaks its patrol, faces him and closes in. In strike reach it pauses for a
-// short reaction time and then attacks — one blow per exchange (see combat.js):
-// the blow is resolved at full extension and starts a recovery before the next
-// one. A defeated enemy stops acting and lies on the ground until the section
-// is left (Actor.draw).
+// breaks its patrol, faces him and closes in. In strike reach it attacks
+// IMMEDIATELY — no reaction pause (owner 2026-10-14). One blow per exchange
+// (see combat.js): the blow is resolved at full extension and the only wait is
+// between consecutive blows — the full-stretch hold (attackHoldMs) and the
+// recovery (recoveryMs) before the next one. A defeated enemy stops acting and
+// lies on the ground until the section is left (Actor.draw).
 //
 // All statistics and moves come from a character config (data/characters/<type>.json),
 // loaded by the caller; a type without a config file is not implemented and is
@@ -25,7 +26,6 @@ const DIR_LEFT = -1;
 const DIR_RIGHT = 1;
 
 const AGGRO_RANGE_PX = 350;   // the player this close breaks the patrol
-const REACTION_MS = 350;      // pause in reach before the first blow
 const ATTACK_HOLD_MS = 150;   // default hold of the full-stretch frame after the blow resolves
 
 export default class Enemy extends Actor {
@@ -40,7 +40,6 @@ export default class Enemy extends Actor {
         super({ x, y, def, id });
         this.spawnX = x;
         this.direction = DIR_LEFT;
-        this.reactionMs = REACTION_MS;
         // How long the full-stretch frame is held before returning to the
         // straight pose (e.g. lysyblokers lingers in the headbutt for 0.5 s).
         this.attackHoldMs = def.attackHoldMs ?? ATTACK_HOLD_MS;
@@ -101,10 +100,10 @@ export default class Enemy extends Actor {
 
         if (isStrikeInRange(this, target)) {
             this.vx = 0;
-            this.reactionMs -= dt;
-            if (this.reactionMs <= 0 && this.attackCooldownMs <= 0) this.startAttack();
+            // No reaction pause: the blow comes immediately in reach. The only
+            // wait is between consecutive blows (attackHoldMs + recoveryMs).
+            if (this.attackCooldownMs <= 0) this.startAttack();
         } else {
-            this.reactionMs = REACTION_MS;
             this.tryMove(this.facing * this.walkSpeed * (dt / 1000), 0, solids);
             this.vx = this.facing * this.walkSpeed;
         }

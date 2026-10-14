@@ -12,7 +12,15 @@
 //   <enemyName>-attack-miss / <enemyName>-attack-hit  e.g. lysyblokers-attack-miss
 //   <street>_<section>-ambient                      looping section ambience,
 //                                                     e.g. ulica-01_01-ambient
-//   boss-intro                                      played on the boss fight intro/start
+//   ambience                                        default street ambience (looping
+//                                                     street noise for regular play),
+//                                                     played when a section has no
+//                                                     ambient of its own
+//   boss-intro                                      the boss's introduction sentence,
+//                                                     played once on top of the boss
+//                                                     music when the fight starts
+//   game-over                                       death music on defeat, played
+//                                                     once behind the end screen
 
 const SOUND_DIR = 'assets/sounds/';
 
@@ -35,17 +43,54 @@ export function playJumpSound(who) {
 
 let ambient = null;
 let bossMusic = null;
+let bossIntro = null;
 let gameOverMusic = null;
 
 /**
- * Starts the looping `<street>_<section>-ambient` track for a section,
- * replacing any track already playing (the boss layer drops with it).
- * Missing file = silence.
+ * Starts the looping ambience for regular play, replacing any track already
+ * playing. The section's own `<street>_<section>-ambient` wins when it exists;
+ * otherwise the default street ambience (`ambience.mp3`) plays instead.
  */
 export function startAmbient(street, section) {
     stopBossMusic();
+    stopBossIntro();
     stopAmbient();
-    ambient = play(`${street}_${section}-ambient`, { loop: true });
+    ambient = playAmbientWithFallback(`${street}_${section}-ambient`);
+    armStartupRetry();
+}
+
+// Browsers refuse audible playback before the first user gesture, so the
+// street would stay silent after boot. One-shot: on the first key press or
+// click the ambient is started if the browser still refuses to play it.
+let startupRetryArmed = false;
+function armStartupRetry() {
+    if (startupRetryArmed) return;
+    startupRetryArmed = true;
+    const retry = () => {
+        window.removeEventListener('keydown', retry);
+        window.removeEventListener('pointerdown', retry);
+        startupRetryArmed = false;
+        // No paused check: a rejected play() leaves unreliable state behind.
+        // play() on a track that is already going is a harmless no-op.
+        if (ambient) ambient.play().catch(() => {});
+    };
+    window.addEventListener('keydown', retry);
+    window.addEventListener('pointerdown', retry);
+}
+
+/**
+ * Plays a looping track, falling back to the default street ambience when its
+ * file is missing. The fallback only starts while this track is still the
+ * active ambient layer (it may have been replaced before the error arrives).
+ */
+function playAmbientWithFallback(name) {
+    const audio = new Audio(`${SOUND_DIR}${name}.mp3`);
+    audio.loop = true;
+    audio.addEventListener('error', () => {
+        if (ambient === audio) ambient = play('ambience', { loop: true });
+    }, { once: true });
+    audio.play().catch(() => {});
+    return audio;
 }
 
 export function stopAmbient() {
@@ -54,14 +99,26 @@ export function stopAmbient() {
     ambient = null;
 }
 
-/** Plays `boss-intro` when a boss fight starts (called by the boss intro sequence). */
+/**
+ * Plays `boss-intro` — the boss's introduction sentence — once, on top of the
+ * boss music when the fight starts. The handle is kept so a long sentence is
+ * never dropped mid-play.
+ */
 export function playBossIntro() {
-    play('boss-intro');
+    stopBossIntro();
+    bossIntro = play('boss-intro');
+}
+
+export function stopBossIntro() {
+    if (!bossIntro) return;
+    bossIntro.pause();
+    bossIntro = null;
 }
 
 /**
  * Starts the looping `boss-music` track for a boss fight. It replaces the
- * ambient layer (highest active layer wins — audio layering comes in P4.3).
+ * ambient layer (highest active layer wins — audio layering comes in P4.3);
+ * the introduction sentence rides on top of it.
  * Missing file = silence.
  */
 export function startBossMusic() {
@@ -76,16 +133,25 @@ export function stopBossMusic() {
     bossMusic = null;
 }
 
-/** Death music (`game-over`) looping behind the game over screen. */
+/**
+ * Death music (`game-over`) behind the end screen, played ONCE on defeat —
+ * no loop: the panel stays silent after it ends (owner 2026-10-14).
+ */
 export function playGameOverMusic() {
-    stopAmbient();
-    stopBossMusic();
-    stopGameOverMusic();
-    gameOverMusic = play('game-over', { loop: true });
+    stopAllAudio();
+    gameOverMusic = play('game-over');
 }
 
 export function stopGameOverMusic() {
     if (!gameOverMusic) return;
     gameOverMusic.pause();
     gameOverMusic = null;
+}
+
+/** The game is over: every layer — ambient, boss music, intro sentence, death music — goes quiet. */
+export function stopAllAudio() {
+    stopAmbient();
+    stopBossMusic();
+    stopBossIntro();
+    stopGameOverMusic();
 }
