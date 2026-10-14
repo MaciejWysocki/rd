@@ -20,7 +20,7 @@
 // never constructed (see character-defs.js).
 
 import Actor from './actor.js';
-import { isStrikeInRange } from './combat.js';
+import { isStrikeInRange, STRIKE_REACH_PX } from './combat.js';
 
 const DIR_LEFT = -1;
 const DIR_RIGHT = 1;
@@ -40,6 +40,9 @@ export default class Enemy extends Actor {
         super({ x, y, def, id });
         this.spawnX = x;
         this.direction = DIR_LEFT;
+        // How close the player must be for this enemy to start a blow
+        // (the boss overrides it with its vomit range).
+        this.attackReachPx = def.attackReachPx ?? STRIKE_REACH_PX;
         // How long the full-stretch frame is held before returning to the
         // straight pose (e.g. lysyblokers lingers in the headbutt for 0.5 s).
         this.attackHoldMs = def.attackHoldMs ?? ATTACK_HOLD_MS;
@@ -98,7 +101,7 @@ export default class Enemy extends Actor {
         const targetCenter = target.x + target.hitbox.x + target.hitbox.w / 2;
         this.facing = targetCenter >= this._centerX() ? DIR_RIGHT : DIR_LEFT;
 
-        if (isStrikeInRange(this, target)) {
+        if (isStrikeInRange(this, target, this.attackReachPx)) {
             this.vx = 0;
             // No reaction pause: the blow comes immediately in reach. The only
             // wait is between consecutive blows (attackHoldMs + recoveryMs).

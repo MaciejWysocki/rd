@@ -4,18 +4,18 @@
 //
 // The boss's ranged attack: a burst of small (3x3 px) green squares spat from
 // its mouth toward the player (owner 2026-10-15). The burst flies in an arc
-// and can hurt the player within VOMIT_HIT_PX of the mouth ("in about 150 px
+// and can hurt the player within VOMIT_HIT_PX of the mouth ("in about 300 px
 // it should hit and hurt the player"); then it keeps flying and the squares
-// land on the ground at about VOMIT_RANGE_PX ("fly and fall down in 300 px"),
+// land on the ground at about VOMIT_RANGE_PX ("fly and fall down in 600 px"),
 // staining it until the section is left. One burst hurts at most once and
 // never sprays blood — the green squares are the whole effect.
 
 import { FRAME_SIZE } from '../actors/actor.js';
 
 const PARTICLE_SIZE_PX = 3;
-const PARTICLES_PER_BURST = 14;
-export const VOMIT_HIT_PX = 150;   // the burst can hurt the player this far from the mouth
-export const VOMIT_RANGE_PX = 300; // where the squares land on the ground
+const PARTICLES_PER_BURST = 40;    // enough squares to read as a visible spray (owner 2026-10-15)
+export const VOMIT_HIT_PX = 300;   // the burst can hurt the player this far from the mouth
+export const VOMIT_RANGE_PX = 600; // where the squares land on the ground
 const GRAVITY_PX_PER_MS2 = 0.003;
 const FLIGHT_MS = 340;             // ~VOMIT_RANGE_PX of horizontal travel
 const MOUTH_OFFSET_PX = 40;        // the mouth is ahead of the frame centre

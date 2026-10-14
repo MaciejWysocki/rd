@@ -27,9 +27,10 @@ export const ROW_WALK = 0;
 const WALK_FRAMES = 8;
 const ATTACK_FRAMES = 4;
 
-// Death: the fall plays on the character's death row (4 frames) while the body
-// slides a little back (opposite the facing). Sheets without a fall row fall
-// back to the rotated placeholder pose.
+// Death: the fall plays on the character's death row while the body slides a
+// little back (opposite the facing). The row has `deathFrames` frames (default
+// 4; Rudy's row 2 uses all 8 — owner 2026-10-15). Sheets without a fall row
+// fall back to the rotated placeholder pose.
 const DEATH_FRAMES = 4;
 const DEATH_FRAME_MS = 150;
 const DEATH_SHIFT_PX = 40;
@@ -56,6 +57,7 @@ export default class Actor {
         this.hitbox = { ...def.hitbox };
         this.moves = def.moves ?? [];
         this.deathRow = def.deathRow ?? null;
+        this.deathFrames = def.deathFrames ?? DEATH_FRAMES;
         this.deathElapsed = 0;
 
         const rows = Math.max(0, ...this.moves.map(m => m.row), this.deathRow ?? -1) + 1;
@@ -64,6 +66,7 @@ export default class Actor {
         for (const move of this.moves) {
             if (move.alternate) rowFrames[move.row] = ATTACK_FRAMES * 2;
         }
+        if (this.deathRow !== null) rowFrames[this.deathRow] = this.deathFrames;
         this.sheet = new SpriteSheet(`assets/sprites/${def.sprite}.png`, FRAME_SIZE, rowFrames);
 
         this.row = ROW_WALK;
@@ -193,9 +196,18 @@ export default class Actor {
     /** Plays the fall on the death row once, then holds the last (lying) frame. */
     _updateDeath(dt) {
         if (this.deathRow === null) return;
-        this.deathElapsed = Math.min(this.deathElapsed + dt, DEATH_FRAMES * DEATH_FRAME_MS);
+        this.deathElapsed = Math.min(this.deathElapsed + dt, this.deathFrames * DEATH_FRAME_MS);
         this.row = this.deathRow;
-        this.frame = Math.min(Math.floor(this.deathElapsed / DEATH_FRAME_MS), DEATH_FRAMES - 1);
+        this.frame = Math.min(Math.floor(this.deathElapsed / DEATH_FRAME_MS), this.deathFrames - 1);
+    }
+
+    /**
+     * True once the fall has played out and the body lies still — the game
+     * waits for it before the end screen freezes the scene (owner 2026-10-15:
+     * Rudy's death is animated and slides away, like every other character).
+     */
+    isDeathAnimationDone() {
+        return this.deathRow === null || this.deathElapsed >= this.deathFrames * DEATH_FRAME_MS;
     }
 
     /**
@@ -209,10 +221,10 @@ export default class Actor {
         this.facing = facing;
         this.hp = 0;
         this.defeated = true;
-        this.deathElapsed = DEATH_FRAMES * DEATH_FRAME_MS;
+        this.deathElapsed = this.deathFrames * DEATH_FRAME_MS;
         if (this.deathRow !== null) {
             this.row = this.deathRow;
-            this.frame = DEATH_FRAMES - 1;
+            this.frame = this.deathFrames - 1;
         }
     }
 
@@ -250,7 +262,7 @@ export default class Actor {
         if (this.deathRow !== null) {
             // The fall plays on the death row while the body slides a little
             // back (opposite the facing), then holds the lying frame.
-            const progress = this.deathElapsed / (DEATH_FRAMES * DEATH_FRAME_MS);
+            const progress = this.deathElapsed / (this.deathFrames * DEATH_FRAME_MS);
             this.sheet.drawFrame(ctx, this.row, this.frame, drawX - this.facing * DEATH_SHIFT_PX * progress, drawY, this.facing);
             return;
         }

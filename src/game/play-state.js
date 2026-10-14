@@ -102,7 +102,9 @@ export default class PlayState {
         const stats = this.state.stats[this.player.name];
         if (stats) stats.hp = this.player.hp;
 
-        if (this.player.defeated) this._end('lost');
+        // The end screen waits for Rudy's fall: the death animation plays out
+        // (row 2 of his sheet, sliding back) before the scene freezes.
+        if (this.player.defeated && this.player.isDeathAnimationDone()) this._end('lost');
     }
 
     /**
