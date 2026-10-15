@@ -2,22 +2,26 @@
 //
 // vomit.js
 //
-// The boss's ranged attack: a burst of small (3x3 px) green squares spat from
+// The boss's ranged attack: a burst of small (5x5 px) green squares spat from
 // its mouth toward the player (owner 2026-10-15). The burst flies in an arc
 // and can hurt the player within VOMIT_HIT_PX of the mouth ("in about 300 px
 // it should hit and hurt the player"); then it keeps flying and the squares
 // land on the ground at about VOMIT_RANGE_PX ("fly and fall down in 600 px"),
 // staining it until the section is left. One burst hurts at most once and
-// never sprays blood — the green squares are the whole effect.
+// never sprays blood — the green squares are the whole effect. A player who
+// jumps over the spray is not hit (owner 2026-10-15).
 
 import { FRAME_SIZE } from '../actors/actor.js';
 
-const PARTICLE_SIZE_PX = 3;
+const PARTICLE_SIZE_PX = 5;
 const PARTICLES_PER_BURST = 40;    // enough squares to read as a visible spray (owner 2026-10-15)
 export const VOMIT_HIT_PX = 300;   // the burst can hurt the player this far from the mouth
 export const VOMIT_RANGE_PX = 600; // where the squares land on the ground
-const GRAVITY_PX_PER_MS2 = 0.003;
-const FLIGHT_MS = 340;             // ~VOMIT_RANGE_PX of horizontal travel
+// The spray flies twice as slow (owner 2026-10-15): halved speeds and quartered
+// gravity keep the exact same arc — the same hit and landing ranges — over a
+// flight that takes twice as long.
+const GRAVITY_PX_PER_MS2 = 0.00075;
+const FLIGHT_MS = 680;             // ~VOMIT_RANGE_PX of horizontal travel
 const MOUTH_OFFSET_PX = 40;        // the mouth is ahead of the frame centre
 const MOUTH_HEIGHT_PX = 60;        // ...and this far below the frame top
 const COLOR = '#2e8b2e';
@@ -43,7 +47,7 @@ export default class Vomit {
                 x: originX,
                 y: originY,
                 vx: speedX * (0.9 + Math.random() * 0.2),
-                vy: -(0.15 + Math.random() * 0.25),
+                vy: -(0.075 + Math.random() * 0.125),
                 landed: false,
             });
         }
@@ -99,6 +103,9 @@ export default class Vomit {
 
     /** True while the burst is within the hit range and its squares touch the player. */
     _reaches(burst, target) {
+        // Jumping over the spray dodges it (owner 2026-10-15): the burst only
+        // hits a player standing on the ground — it flies under a hopping one.
+        if (target.jumping || target.drawOffsetY > 0) return false;
         const travelled = (this._leadX(burst) - burst.originX) * burst.dirX;
         if (travelled > VOMIT_HIT_PX) return false;
         const left = target.x;

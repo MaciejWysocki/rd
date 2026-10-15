@@ -138,7 +138,7 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - ~100 ms tie buffer counted from attack-animation finish (full stretch); simultaneous finishes → headbutt > punch > kick > headbutt.
   - Acceptance: simultaneous strikes resolve by the RPS table; single earlier strike always wins.
 - [ ] ⬜ **P1.2 — Timed evasion (retreat + jump)**
-  - Unbuffered dodges; the hitbox check at animation finish respects evasion — dodge before the finish → no hit, too late → hit. (The jump hop itself exists since 2026-10-12; this task adds its combat semantics plus the retreat move.)
+  - Unbuffered dodges; the hitbox check at animation finish respects evasion — dodge before the finish → no hit, too late → hit. (The jump hop itself exists since 2026-10-12 — it already dodges the boss's vomit (owner 2026-10-15); this task adds its melee dodge semantics plus the retreat move.)
   - Acceptance: dodging just before the finish avoids damage; dodging after getting hit still takes it.
 - [ ] ⬜ **P1.3 — Move sets & per-character speeds**
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
@@ -193,5 +193,5 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 - Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>_<section>-ambient` (loop; falls back to the default street ambience `ambience.mp3`, which plays automatically at boot — owner 2026-10-14/15), `boss-intro` (the boss's introduction sentence, played once on top of `boss-music`), `boss-music` (loop), `game-over` (played once on defeat, no loop), `<street>-congratulations` (victory jingle, played once — owner 2026-10-15). **Every audio file is optional — a missing file means silence.**
 - **PoC**: `player-jump.mp3`, `player-attack-hit.mp3`, `lysyblokers-attack-miss/-hit.mp3`, the "beer bought" (piwo) mp3, death music (`game-over.mp3`), `boss-intro.mp3`, boss music (`boss-music.mp3`). (`player-attack-miss.mp3` and `ulica-01_01-sklep.mp3` exist.)
 - **Later**: `ulica-01_01-ambient`-style street ambient loops, section music, catchphrase mp3s, dialogue mp3s.
-- **Sprites**: headbutt row for `lysyblokers`, `boss_zul` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row). Rudy's death row (`rudy_dres` row 2, all 8 frames) is in use — owner 2026-10-15.
+- **Sprites**: headbutt row for `lysyblokers`, `boss_zul` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row). Rudy's death row (`rudy_dres` row 2, all 8 frames) and the boss's (`boss_zul` row 2, first 4 frames) are in use — owner 2026-10-15.
 - Convention-based sounds are always optional (silence when absent); only sounds explicitly configured in a JSON file (e.g. the shop `sound` field) report errors like other assets.

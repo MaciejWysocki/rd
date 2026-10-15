@@ -13,7 +13,9 @@
 // animation playing through it — Rudy "walks in the air" — and the `<who>-jump`
 // sound. Side arrows stay live during the hop, so Rudy can drift left/right on
 // the fly. At a shop door the same key enters the shop instead (PlayState
-// decides the priority). The hop is a draw offset only; the hitbox stays on the ground.
+// decides the priority). The hop is a draw offset only; the hitbox stays on the
+// ground. Killed mid-air, the death animation starts at once but the body still
+// finishes the hop and drops to the ground before the game freezes (owner 2026-10-15).
 //
 // Debug run: holding Shift (either one) moves Rudy 4x faster while walking.
 //
@@ -56,6 +58,9 @@ export default class Player extends Actor {
     update(dt, keyboard, solids) {
         if (this.defeated) {
             this.vx = 0;
+            // Killed mid-air: the fall animation starts at once, but the body
+            // still finishes the hop and drops to the ground (owner 2026-10-15).
+            if (this.jumping) this._advanceJump(dt);
             super.update(dt); // the fall animation keeps playing
             return;
         }
@@ -118,13 +123,7 @@ export default class Player extends Actor {
 
     /** Vertical hop on a parabola; the walk cycle keeps playing — Rudy walks in the air. */
     _updateJump(dt, keyboard, solids) {
-        this.jumpElapsed += dt;
-        const t = Math.min(this.jumpElapsed / this.jumpDurationMs, 1);
-        this.drawOffsetY = 4 * this.jumpHeightPx * t * (1 - t);
-        if (t >= 1) {
-            this.jumping = false;
-            this.drawOffsetY = 0;
-        }
+        this._advanceJump(dt);
 
         const dir = keyboard.horizontal();
         const speed = this.walkSpeed * debugSpeedMultiplier(keyboard);
@@ -136,6 +135,17 @@ export default class Player extends Actor {
         // Walk animation runs normally (scaled by |vx|) so pressing arrows keeps it cycling.
         this.vx = dir * speed;
         super.update(dt);
+    }
+
+    /** The hop's parabola alone — also finishes the arc of a body killed mid-air. */
+    _advanceJump(dt) {
+        this.jumpElapsed += dt;
+        const t = Math.min(this.jumpElapsed / this.jumpDurationMs, 1);
+        this.drawOffsetY = 4 * this.jumpHeightPx * t * (1 - t);
+        if (t >= 1) {
+            this.jumping = false;
+            this.drawOffsetY = 0;
+        }
     }
 
     /** Walk animation without player input, for scripted sequences. */

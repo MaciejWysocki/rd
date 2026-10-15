@@ -46,6 +46,7 @@ export default class PlayState {
         this.transitioning = false;
         this.shop = new ShopEntry(state);
         this.endSent = false; // the shared end screen is requested exactly once
+        this.bossDefeatHandled = false; // the boss's death is recorded exactly once
         this.blood = new Blood();
         this._countedKills = new WeakSet();
         this._overlayImages = new Map();
@@ -138,12 +139,17 @@ export default class PlayState {
         for (const enemy of section.enemies) this._countKill(enemy);
         if (section.boss) this._countKill(section.boss);
 
-        // The bum's defeat: the world flag that keeps him down on later visits
-        // and the shared end screen with the victory result (P0.5).
+        // The bum's defeat: the world flag that keeps him down on later visits,
+        // then the shared end screen with the victory result (P0.5) — but only
+        // after his fall has played out (row 2 of his sheet), like Rudy's
+        // (owner 2026-10-15).
         const boss = section.boss;
-        if (boss?.defeated && !this.endSent) {
-            this.state.setFlag(`${boss.id}_defeated`, true);
-            this._end('won');
+        if (boss?.defeated) {
+            if (!this.bossDefeatHandled) {
+                this.bossDefeatHandled = true;
+                this.state.setFlag(`${boss.id}_defeated`, true);
+            }
+            if (boss.isDeathAnimationDone()) this._end('won');
         }
     }
 
