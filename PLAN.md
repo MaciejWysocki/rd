@@ -89,7 +89,8 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 
 ### UI
 - **Game over screen**: statistics + death music + restart button (see Health).
-- **HP / money: top-left HUD** (owner decision 2026-10-12) — hearts (one `assets/hud/hp.png` per 1 HP) and coins below (one `assets/hud/money.png` per 5 PLN coin); **objectives / other information remain TBD through testing** (P0.8 experiment).
+- **HP / money: top-left HUD** (owner decision 2026-10-12) — hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per 5 PLN coin). **Mission logs: two reserved rows at top-right above enemy HP** (implemented + browser-verified 2026-10-19): "Kup piwo" remains on row 1; purchase adds "Znajdz ustronne aby wypić piwo" on row 2; engaging `boss_zul` changes row 2 to "Pokonaj żula". Logs persist across sections and reset on restart.
+- **Typography** (implemented + browser-verified 2026-10-19): all page and Canvas text uses the bundled `PressStart2P-Regular.ttf` (Press Start 2P); bootstrap loads it before gameplay. End-screen labels are sized to fit the pixel font.
 - A **collapsible menu** at the side/corner: stats, list of completed missions, current "street mission" status, and a **game timer**. Completing the street shows a **congratulatory message** (Phase 4).
 
 ## ✅ Former "Open decisions" — answered (owner, 2026-10-11)
@@ -163,7 +164,7 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
   - Mission inventory (e.g. documents to deliver); slight stat boost per completed mission.
   - Acceptance: a mission item can be taken, carried and delivered; completing a quest visibly raises a stat.
 - [ ] ⬜ **P2.3 — Section re-entry effects + objective text**
-  - Quest-driven spawns applied on re-entry ("came back and things are different"); brief objective text (placement experimental until the owner decides).
+  - Quest-driven spawns applied on re-entry ("came back and things are different"); brief objective text. Basic beer/boss mission logs and their fixed top-right placement are implemented and browser-verified (2026-10-19); the general quest-driven re-entry behavior remains planned.
   - Acceptance: completing a side quest visibly changes its section after leaving and re-entering.
 
 ## 🚶 Phase 3 — NPCs & dialogue

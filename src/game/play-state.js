@@ -120,6 +120,7 @@ export default class PlayState {
         if (!boss || boss.fightStarted || boss.defeated) return;
         if (!this.state.matchesConditions(boss.trigger)) return;
         boss.engage();
+        if (boss.id === 'boss_zul') this.state.missionLogs[1] = 'Pokonaj żula';
         startBossMusic();
         // The boss's introduction sentence plays on top of the fight music.
         playBossIntro();
@@ -272,15 +273,15 @@ export default class PlayState {
         this.player.draw(ctx);
         this.blood.draw(ctx); // spray and stains, over the characters
 
-        // HUD stays on top: hearts (1 per HP), coins (1 per money unit) and
-        // carried items (1 icon per unit, e.g. the bought beer). While an enemy
-        // is in fight mode its HP shows as hearts in the top-right corner.
+        // HUD stays on top: hearts, coins and carried items at the left;
+        // two mission-log rows above the fighting enemy's hearts at the right.
         const foe = this._fightingFoe(section);
         drawHud(ctx, {
             hp: this.state.stats[this.player.name]?.hp ?? 0,
             money: this.state.money,
             items: this.state.inventory,
             enemyHp: foe ? { hp: foe.hp, maxHp: foe.maxHp } : null,
+            missionLogs: this.state.missionLogs,
         });
     }
 

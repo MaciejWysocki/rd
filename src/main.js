@@ -9,6 +9,9 @@ import EndState from './game/end-state.js';
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+await document.fonts.load('16px "Press Start 2P"');
+ctx.font = '16px "Press Start 2P"';
+
 const game = new Game();
 
 const world = new WorldManager(game.state);

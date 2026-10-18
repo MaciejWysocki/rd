@@ -12,6 +12,7 @@
 export default class State {
     constructor() {
         this.quests = {};      // { questId: questObject }
+        this.missionLogs = []; // two HUD rows, retained across section changes
         this.inventory = {};   // { itemId: { item, qty } }
         this.money = 0;
         this.flags = {};       // { flagName: boolean }
@@ -52,6 +53,7 @@ export default class State {
      */
     resetForNewGame(playerDef) {
         this.quests = {};
+        this.missionLogs = ['Kup piwo'];
         this.inventory = {};
         this.money = playerDef.money ?? 0;
         this.flags = {};

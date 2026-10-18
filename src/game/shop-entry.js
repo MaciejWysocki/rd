@@ -119,6 +119,7 @@ export default class ShopEntry {
         this.exchanged = true;
         this.state.addItem('beer', { id: 'beer', name: 'Piwo' });
         this.state.addMoney(-1);
+        this.state.missionLogs[1] ??= 'Znajdź ustronne miejsce aby wypić piwo';
     }
 
     /** Rudy reappears at the door — the beer was already bought 100 ms before. */

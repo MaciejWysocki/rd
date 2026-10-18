@@ -91,15 +91,15 @@ export default class EndState {
 
         const won = this.result === 'won';
         ctx.fillStyle = won ? '#2e7d32' : '#d32f2f';
-        ctx.font = 'bold 64px sans-serif';
+        ctx.font = '36px "Press Start 2P"';
         ctx.fillText(won ? 'GRATULACJE! WYGRAŁEŚ GRĘ!' : 'PRZEGRAŁEŚ!', width / 2, py + 70);
 
         ctx.fillStyle = '#fff';
-        ctx.font = '32px sans-serif';
+        ctx.font = '24px "Press Start 2P"';
         ctx.fillText(won ? 'Pokonałeś żula!' : 'Rudy poległ na ulicy.', width / 2, py + 135);
 
         ctx.fillStyle = '#bbb';
-        ctx.font = '28px sans-serif';
+        ctx.font = '20px "Press Start 2P"';
         const seconds = Math.floor(this.state.playTimeMs / 1000);
         const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
         const stats = this.state.stats.player ?? {};
@@ -115,11 +115,11 @@ export default class EndState {
         ctx.fillStyle = '#1b5e20';
         ctx.fillRect(button.x, button.y, button.w, button.h);
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 32px sans-serif';
+        ctx.font = '24px "Press Start 2P"';
         ctx.fillText('ZAGRAJ PONOWNIE', button.x + button.w / 2, button.y + button.h / 2);
 
         ctx.fillStyle = '#777';
-        ctx.font = '20px sans-serif';
+        ctx.font = '16px "Press Start 2P"';
         ctx.fillText('kliknij przycisk lub naciśnij Enter', width / 2, button.y + button.h + 36);
     }
 

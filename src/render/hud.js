@@ -4,8 +4,8 @@
 // 1 HP — with money below as coins, one `assets/hud/money.png` per coin (a
 // coin is 5 PLN). Carried items follow below the coins: each item type gets
 // its own row of `assets/hud/<itemId>.png` icons, one per unit (e.g. a bought
-// beer = one `beer.png`). Top-right corner: the HP of the enemy that is
-// currently in fight mode, as hearts. All counters live in the global State /
+// beer = one `beer.png`). Top-right: two reserved mission-log rows above the
+// HP of the enemy currently in fight mode. All counters live in the global State /
 // the actors; nothing is stored here. A row with zero items draws nothing and
 // collapses entirely (e.g. no coins left = the money row is gone and the rows
 // below move up).
@@ -17,6 +17,8 @@ const HUD_DIR = 'assets/hud/';
 const X = 16;
 const Y = 16;
 const GAP = 8;
+const MISSION_ROWS = 2;
+const MISSION_ROW_HEIGHT = 32;
 
 const images = new Map();
 
@@ -52,15 +54,27 @@ function drawRow(ctx, name, count, y, align = 'left') {
 /**
  * Draws the HUD: one heart per HP, one coin per money unit below them, then
  * one row per carried item type (sorted by item id). While an enemy is in
- * fight mode its HP shows as hearts in the top-right corner.
+ * fight mode its HP shows below the two reserved mission-log rows at top-right.
  * @param {CanvasRenderingContext2D} ctx
- * @param {{hp:number, money:number, items?:object, enemyHp?:{hp:number}|null}} counters
+ * @param {{hp:number, money:number, items?:object, enemyHp?:{hp:number}|null, missionLogs?:string[]}} counters
  *        Values from the global State; `items` is the inventory ({ itemId: { item, qty } }),
- *        `enemyHp` the HP of the enemy currently fighting (null = corner empty).
+ *        `enemyHp` the HP of the enemy currently fighting (null = no hearts).
  */
-export function drawHud(ctx, { hp, money, items = {}, enemyHp = null }) {
+export function drawHud(ctx, { hp, money, items = {}, enemyHp = null, missionLogs = [] }) {
+    ctx.save();
+    ctx.font = '20px "Press Start 2P"';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    for (let i = 0; i < Math.min(MISSION_ROWS, missionLogs.length); i++) {
+        ctx.fillText(missionLogs[i], ctx.canvas.width - X, Y + i * MISSION_ROW_HEIGHT);
+    }
+    ctx.restore();
+
     if (enemyHp && enemyHp.hp > 0) {
-        drawRow(ctx, 'hp', enemyHp.hp, Y, 'right');
+        drawRow(ctx, 'hp', enemyHp.hp, Y + MISSION_ROWS * MISSION_ROW_HEIGHT + GAP, 'right');
     }
     let y = Y;
     y = drawRow(ctx, 'hp', hp, y);
