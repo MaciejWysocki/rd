@@ -70,19 +70,16 @@ export default class Boss extends Enemy {
     releaseVomit() {
         this.attackResolved = true;
         this.vomit.spawn(this, this.facing);
+        playAttackSound(this.name);
     }
 
     /** Flying bursts finish after defeat, but cannot deal posthumous damage. */
     updateVomit(dt, target = null) {
         const livingTarget = this.defeated ? null : target;
         const outcome = this.vomit.update(dt, livingTarget);
-        if (livingTarget) {
-            if (outcome === 'hit') {
-                livingTarget.takeDamage(VOMIT_DAMAGE);
-                playAttackSound(this.name, 'hit');
-            } else if (outcome === 'miss') {
-                playAttackSound(this.name, 'miss');
-            }
+        if (livingTarget && outcome === 'hit') {
+            livingTarget.takeDamage(VOMIT_DAMAGE);
+            playAttackSound(this.name, 'hit');
         }
     }
 

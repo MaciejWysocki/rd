@@ -10,6 +10,7 @@
 // Conventions:
 //   player-attack-miss / player-attack-hit          Rudy's attack, whether it landed
 //   <enemyName>-attack-miss / <enemyName>-attack-hit  e.g. lysyblokers-attack-miss
+//   <bossName>-attack                              attack release, independent of impact
 //   <street>_<section>-ambient                      looping section ambience,
 //                                                     e.g. ulica-01_01-ambient
 //   ambience                                        default street ambience (looping
@@ -34,9 +35,9 @@ function play(name, { loop = false } = {}) {
     return audio;
 }
 
-/** Plays `<who>-attack-<outcome>`, where who is "player" or an enemy name. */
-export function playAttackSound(who, outcome) {
-    play(`${who}-attack-${outcome}`);
+/** Plays `<who>-attack` on release, or `<who>-attack-<outcome>` for a hit/miss. */
+export function playAttackSound(who, outcome = null) {
+    play(outcome ? `${who}-attack-${outcome}` : `${who}-attack`);
 }
 
 /** Plays `<who>-jump` (e.g. player-jump) when a character jumps. */
