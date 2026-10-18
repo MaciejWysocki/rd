@@ -45,6 +45,8 @@ export default class EndState {
         this.drawScene = drawScene;
         this.restarting = false;
         this._onClick = e => this._handleClick(e);
+        this.frameImage = new Image();
+        this.frameImage.src = 'assets/hud/endgame-frame.png';
     }
 
     onEnter() {
@@ -121,6 +123,10 @@ export default class EndState {
         ctx.fillStyle = '#777';
         ctx.font = '16px "Press Start 2P"';
         ctx.fillText('kliknij przycisk lub naciśnij Enter', width / 2, button.y + button.h + 36);
+
+        if (this.frameImage.complete && this.frameImage.naturalWidth > 0) {
+            ctx.drawImage(this.frameImage, 229, 93);
+        }
     }
 
     /** The play-again button: centered horizontally near the bottom of the panel. */
