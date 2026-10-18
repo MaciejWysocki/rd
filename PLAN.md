@@ -49,8 +49,9 @@ Overall: 🔄 — **Phase 0 (PoC) complete and verified in the browser (2026-10-
 - **First to strike lands the hit.** The defender can evade by **retreat or jump**.
 - The hit is resolved **at the finish of the attack animation (full stretch of the punch/headbutt/kick)**: if you see the attack and retreat/jump **before the animation finishes**, you are **not hit**. Retreat and jump are **not buffered**.
 - If both attack animations finish within a **~100 ms tie buffer**, resolve Rock-Paper-Scissors: **headbutt beats punch, punch beats kick, kick beats headbutt**.
+- Range attacks like vomit never tie, they always hit unless retreated/jumped away.
 - **Movement and attack speeds differ per character** (parameters — players and enemies alike).
-- Move sets are configured per character by **key mapping + sprite row number** (`{ key, row, type: punch|kick|headbutt }`) — never hardcoded. Often just one move (the bald thug `lysyblokers` only headbutts); Rudy starts with a punch and gains headbutt + kick later, via missions.
+- Move sets are configured per character by **key mapping + sprite row number** (`{ key, row, type: punch|kick|headbutt|vomit }`) — never hardcoded. Often just one move (the bald thug `lysyblokers` only headbutts); Rudy starts with a punch and gains headbutt + kick later, via missions.
 - PoC simplification: **trading single blows**, HP counts down from a few points to zero.
 
 ### Health, death, effects
