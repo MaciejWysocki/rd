@@ -55,9 +55,7 @@ export default class Vomit {
     }
 
     /**
-     * Gravity plus the hit test. Returns true once per burst, the moment its
-     * squares reach the player within the hit range — the caller applies the
-     * damage (1, like every blow). A burst that lands without hitting is over.
+     * Gravity plus the hit test. Returns 'hit', 'miss' or null.
      * @param {number} dt Delta time in ms.
      * @param {Actor|null} target The player, when present and hittable.
      */

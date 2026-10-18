@@ -24,13 +24,13 @@ Companion docs: [AGENTS.md](AGENTS.md) (context & conventions — read first), [
 | Phase | Scope | Progress | Status |
 |---|---|---|---|
 | 🧪 0 | PoC — mechanics test bed (**PRIORITY**) | 8/8 | ✅ |
-| ⚔️ 1 | Full combat system | 0/4 | ⬜ |
+| ⚔️ 1 | Full combat system | 4/5 | 🔄 |
 | 📜 2 | Questing & world-state engine | 0/3 | ⬜ |
 | 🚶 3 | NPCs & dialogue | 0/2 | ⬜ |
 | 👑 4 | Boss framework, audio layering, UI menu | 0/3 | ⬜ |
 | 🧰 5 | Expansion & polish | 0/2 | ⬜ |
 
-Overall: 🔄 — **Phase 0 (PoC) complete and verified in the browser (2026-10-12)**: trading single blows with HP/defeat, the money-driven shop with `beer` → inventory, the beer-triggered bum boss (`boss_zul`) with intro + boss music, the congratulatory message on his defeat, the game over screen (stats + death music + restart) and the HUD (hearts / coins / item rows). Next up: Phase 1 (full combat system) — P1.1.
+Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and browser-verified (2026-10-18)**: finish-time RPS arbitration, immediate jump/retreat evasion and collision-aware 30 px knockback. P1.4 blood/corpses is also complete. Next up: **P1.3 — Move sets & per-character speeds**, including mission-based unlocks.
 
 ## 🔒 Locked design decisions (owner; includes answers from 2026-10-11)
 
@@ -135,18 +135,24 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 
 ## ⚔️ Phase 1 — Full combat system
 
-- [ ] ⬜ **P1.1 — RPS tie-break + arbitration**
-  - ~100 ms tie buffer counted from attack-animation finish (full stretch); simultaneous finishes → headbutt > punch > kick > headbutt.
-  - Acceptance: simultaneous strikes resolve by the RPS table; single earlier strike always wins.
-- [ ] ⬜ **P1.2 — Timed evasion (retreat + jump)**
-  - Unbuffered dodges; the hitbox check at animation finish respects evasion — dodge before the finish → no hit, too late → hit. (The jump hop itself exists since 2026-10-12 — it already dodges the boss's vomit (owner 2026-10-15); this task adds its melee dodge semantics plus the retreat move.)
-  - Acceptance: dodging just before the finish avoids damage; dodging after getting hit still takes it.
+- [x] ✅ **P1.1 — RPS tie-break + arbitration** *(done + verified in browser 2026-10-18)*
+  - 100 ms inclusive tie window counted from full extension; already-started opposing melee attacks use headbutt > punch > kick > headbutt. Finish times are compared without adding a delay; a later winner still lands only at its own extension and must pass the hit check then.
+  - Ready attacks resolve chronologically, not player-first. Equal move types favor the earlier finish; exactly equal finishes draw without damage. Vomit is configured as `type: vomit` and never participates in RPS; launched bursts still require contact and can be jumped over or escaped.
+  - Acceptance (verified 2026-10-18): all six RPS matchups; lysyblokers' headbutt beats Rudy's punch on a tie; 99/100 ms ties and the 101 ms first-strike boundary; earlier enemy attacks win regardless of update order; same-type ties and ranged hits checked.
+- [x] ✅ **P1.2 — Timed evasion (retreat + jump)** *(done + verified in browser 2026-10-18)*
+  - Jump immediately cancels Rudy's windup and dodges melee as well as vomit. **↓ (ArrowDown)** starts a backward step without turning: `retreatKey`, `retreatDurationMs: 180`, `retreatDistancePx: 90` in the player config. Retreat uses distance, not invulnerability; walls can block it. Holding ↓ does not repeat it.
+  - Evasion presses during another dodge or the shop sequence are discarded, not buffered. Holding ↑ still repeats hops; shop entry retains priority at the door. Queued punches, alternating hands and zero player recovery remain intact.
+  - Acceptance (verified 2026-10-18): before-finish jump/retreat avoids contact; after-contact dodges do not undo damage; blocked retreat still takes a hit; non-buffered retreat and real keyboard controls checked in-game.
 - [ ] ⬜ **P1.3 — Move sets & per-character speeds**
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
   - Acceptance: two characters with different move sets and speeds fight correctly against each other.
 - [x] ✅ **P1.4 — Blood VFX + corpse polish** *(done + verified in browser 2026-10-14)*
   - Blood as a visual effect (`src/render/blood.js`, owner 2026-10-14): every landed blow sprays 3×3 px red squares out of the struck character; they fly away from the blow, arc down and land on the ground line (the struck character's feet), staining it until the section is left. Corpses already persist where they fell across section visits (kill recorded in the game state — owner 2026-10-13).
   - Acceptance (verified 2026-10-14): blood shows on hits; corpses lie where they fell on re-entry.
+- [x] ✅ **P1.5 — Hit player or enemy is moved back 30 px** *(done + verified in browser 2026-10-18)*
+  - Landed melee hits move the target away from the source by `HIT_KNOCKBACK_PX`, clipped flush to solid boundaries. Ranged attacks such as vomit deal damage without knockback. Misses and RPS draws do not move anyone. Lethal melee hits persist the displaced corpse position; the existing death-animation slide remains separate.
+  - Acceptance (verified 2026-10-18): player/enemy displacement in both directions, left/right wall clipping, no displacement on a miss and persisted lethal-hit position.
+  - Owner update (2026-10-18): ranged damage no longer applies knockback or uses `HIT_KNOCKBACK_PX`; tests not run for this adjustment, as requested.
 
 ## 📜 Phase 2 — Questing & world-state engine
 

@@ -4,11 +4,11 @@
  * keyboard.js
  *
  * Tracks held keys and one-shot presses by their physical code (e.g. "ArrowLeft").
- * extraGameKeys registers character-config keys (move keys, jumpKey) so the
- * browser default action is prevented for them too.
+ * extraGameKeys registers character-config keys (moves, jump and retreat) so
+ * the browser default action is prevented for them too.
  */
 
-const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space']);
+const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
 
 export default class Keyboard {
     constructor(target = window, extraGameKeys = []) {

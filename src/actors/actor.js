@@ -19,7 +19,7 @@
 // hit is resolved); the caller decides when to end it.
 
 import SpriteSheet from '../render/sprite-sheet.js';
-import { ATTACK_COOLDOWN_MS } from './combat.js';
+import { ATTACK_COOLDOWN_MS, HIT_KNOCKBACK_PX } from './combat.js';
 
 export const FRAME_SIZE = 150;
 export const ROW_WALK = 0;
@@ -76,13 +76,12 @@ export default class Actor {
         this.attacking = false;
         this.attackMove = null;
         this.attackStep = 0;
+        this.attackElapsedMs = 0;
         this.attackFrameBase = 0;
         this.attackCount = 0;
 
-        // Combat (PLAN.md P0.2): HP counts down to zero, then the character lies
-        // defeated. attackResolved marks the blow resolved at full extension;
-        // attackCooldownMs is the recovery before the next blow (recoveryMs —
-        // 0 for the player: every press is a punch, no delays).
+        // HP counts down to defeat. A blow resolves once at full extension;
+        // recovery is per character (0 for Rudy: every press is a punch).
         this.hp = def.hp ?? 1;
         this.maxHp = this.hp;
         this.defeated = false;
@@ -108,6 +107,7 @@ export default class Actor {
         this.attacking = true;
         this.attackMove = move;
         this.attackStep = 0;
+        this.attackElapsedMs = 0;
         this.attackFrameBase = move.alternate && this.attackCount % 2 === 1 ? ATTACK_FRAMES : 0;
         this.attackCount += 1;
         this.row = move.row;
@@ -136,22 +136,23 @@ export default class Actor {
         return this.attacking && this.attackStep >= ATTACK_FRAMES - 1;
     }
 
+    /** Signed time to full extension; negative means it finished earlier this frame. */
+    attackFinishInMs() {
+        return (ATTACK_FRAMES - 1) * this.attackFrameMs - this.attackElapsedMs;
+    }
+
     /** True while this character can be struck (a boss before its fight cannot). */
     canBeHit() {
         return !this.defeated;
     }
 
-    /**
-     * Applies one blow. The hit interrupts the struck character's own attack
-     * and stuns it for its recovery (recoveryMs — the player has none);
-     * HP 0 means defeat.
-     * @param {number} amount Damage, 1 per blow in the PoC.
-     */
-    takeDamage(amount = 1) {
+    /** Applies damage and interrupts the target's blow; melee hits supply a knockback direction. */
+    takeDamage(amount = 1, direction = 0, solids = []) {
         if (this.defeated) return;
         this.hp = Math.max(0, this.hp - amount);
         this.endAttack();
         this.attackCooldownMs = this.recoveryMs;
+        if (direction !== 0) this._knockBack(direction, solids);
         if (this.hp === 0) {
             this.defeated = true;
             this.vx = 0;
@@ -160,6 +161,21 @@ export default class Actor {
             this.frame = 0;
             this.frameTimer = 0;
         }
+    }
+
+    /** Sweeps the configured knockback distance without crossing a solid or a street-end wall. */
+    _knockBack(direction, solids) {
+        const left = this.x + this.hitbox.x;
+        const right = left + this.hitbox.w;
+        const top = this.y + this.hitbox.y;
+        const bottom = top + this.hitbox.h;
+        let dx = Math.sign(direction) * HIT_KNOCKBACK_PX;
+        for (const solid of solids) {
+            if (bottom <= solid.y || top >= solid.y + solid.h) continue;
+            if (dx > 0 && solid.x >= right) dx = Math.min(dx, solid.x - right);
+            if (dx < 0 && solid.x + solid.w <= left) dx = Math.max(dx, solid.x + solid.w - left);
+        }
+        this.tryMove(dx, 0, solids);
     }
 
     /**
@@ -185,6 +201,7 @@ export default class Actor {
     }
 
     _updateAttack(dt) {
+        this.attackElapsedMs += dt;
         this.frameTimer += dt;
         while (this.frameTimer >= this.attackFrameMs && this.attackStep < ATTACK_FRAMES - 1) {
             this.frameTimer -= this.attackFrameMs;

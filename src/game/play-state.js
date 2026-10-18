@@ -7,11 +7,9 @@
  * and feeds input and section boundaries into the actors each frame.
  * Walking under a shop door highlights it; Up then starts a scripted entry (see shop-entry.js).
  *
- * Combat (PLAN.md P0.2): every blow whose animation reached full extension is
- * resolved here via combat.js — the player's strike first, then the enemies'
- * and the boss's. The boss fight starts when its trigger conditions are met
- * (P0.4), its defeat hands the game to the shared end screen with the victory
- * result (P0.5) and Rudy's HP 0 with the defeat result (P0.6) — see end-state.js.
+ * Combat resolves in animation-finish order, with melee RPS arbitration in
+ * combat.js. Boss triggers and defeats lead to the shared end screen; Rudy's
+ * defeat waits for his fall before the game freezes.
  */
 
 import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
@@ -50,6 +48,7 @@ export default class PlayState {
         this.blood = new Blood();
         this._countedKills = new WeakSet();
         this._overlayImages = new Map();
+        this._strikes = [];
     }
 
     onEnter() {
@@ -75,15 +74,18 @@ export default class PlayState {
         const solids = section ? section.boundaries : [];
 
         if (this.shop.active) {
-            // Swallow Up presses during the sequence so they don't fire as a jump afterwards.
-            this.keyboard.consumePress('ArrowUp');
+            // Evasion presses during the script cannot fire after leaving the shop.
+            this.keyboard.consumePress(this.player.jumpKey);
+            this.keyboard.consumePress(this.player.retreatKey);
             this.shop.update(dt);
         } else {
             const door = this._shopDoor(section);
-            const underDoor = door && !this.player.attacking && !this.player.jumping && isPlayerUnderDoor(door, this.player);
-            // Up enters the shop at a door; the same key jumps elsewhere (consumed in player.update).
-            if (underDoor && this.keyboard.consumePress('ArrowUp')) {
+            const underDoor = door && !this.player.attacking && !this.player.jumping
+                && !this.player.retreating && isPlayerUnderDoor(door, this.player);
+            // Up enters the shop at a door; elsewhere the same key jumps immediately.
+            if (underDoor && this.keyboard.consumePress(this.player.jumpKey)) {
                 this.shop.start(door, this.player);
+                this.keyboard.consumePress(this.player.retreatKey);
             } else {
                 this.player.update(dt, this.keyboard, solids);
 
@@ -99,6 +101,7 @@ export default class PlayState {
 
         this._checkBossTrigger(section);
         this._resolveCombat(section);
+        section?.boss?.updateVomit(dt, this.player);
 
         const stats = this.state.stats[this.player.name];
         if (stats) stats.hp = this.player.hp;
@@ -122,20 +125,22 @@ export default class PlayState {
         playBossIntro();
     }
 
-    /**
-     * Resolves every blow whose attack animation has reached full extension
-     * (combat.js). The player's strike is resolved first — proper tie-break
-     * for simultaneous finishes comes with P1.1.
-     */
+    /** Resolves ready attacks chronologically, not in player/enemy update order. */
     _resolveCombat(section) {
         if (!section) return;
 
-        if (this.player.attacking && this.player.isAttackAtFullExtension() && !this.player.attackResolved) {
-            this._landStrike(this.player, this._pickStrikeTarget(section));
+        const strikes = this._strikes;
+        strikes.length = 0;
+        this._queueStrike(this.player);
+        for (const enemy of section.enemies) this._queueStrike(enemy);
+        if (section.boss) this._queueStrike(section.boss);
+        strikes.sort((a, b) => a.attackFinishInMs() - b.attackFinishInMs());
+        for (const attacker of strikes) {
+            // An earlier blow may have interrupted or defeated this attacker.
+            if (attacker.defeated || !attacker.attacking || attacker.attackResolved) continue;
+            const target = attacker === this.player ? this._pickStrikeTarget(section) : this.player;
+            this._landStrike(attacker, target, section.boundaries);
         }
-
-        for (const enemy of section.enemies) this._resolveStrikeOf(enemy);
-        if (section.boss) this._resolveStrikeOf(section.boss);
         for (const enemy of section.enemies) this._countKill(enemy);
         if (section.boss) this._countKill(section.boss);
 
@@ -153,16 +158,19 @@ export default class PlayState {
         }
     }
 
-    _resolveStrikeOf(enemy) {
-        if (enemy.defeated) return;
-        if (enemy.attacking && enemy.isAttackAtFullExtension() && !enemy.attackResolved) {
-            this._landStrike(enemy, this.player);
+    _queueStrike(actor) {
+        if (!actor.defeated && actor.isAttackAtFullExtension() && !actor.attackResolved) {
+            this._strikes.push(actor);
         }
     }
 
-    /** Resolves one blow (combat.js) and sprays blood where it landed. */
-    _landStrike(attacker, target) {
-        const outcome = resolveStrike(attacker, target);
+    /** Releases ranged attacks without RPS, or resolves a melee blow and its blood. */
+    _landStrike(attacker, target, solids) {
+        if (attacker.attackMove.type === 'vomit') {
+            attacker.releaseVomit();
+            return;
+        }
+        const outcome = resolveStrike(attacker, target, solids);
         // Only bloody attackers make the target bleed (bloodOnTarget, default true).
         if (outcome === 'hit' && attacker.bloodOnTarget) {
             this.blood.spawn(target, target.x >= attacker.x ? 1 : -1);

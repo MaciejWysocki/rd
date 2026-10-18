@@ -2,15 +2,10 @@
 //
 // combat.js
 //
-// Universal combat resolution shared by the player, regular enemies and
-// bosses (PLAN.md P0.2: trading single blows). The hit is resolved at the
-// finish of the attack animation ("full stretch"): the first strike to
-// finish lands, cancels the defender's own blow and stuns it for a short
-// recovery. Whether the blow connects is checked against the two hitboxes
-// at that moment — the defender only needs to be out of reach or turned away.
-//
-// PoC rules: 1 damage per blow, HP 0 means defeat. Simultaneous finishes
-// and timed evasion are Phase 1 (P1.1/P1.2).
+// Universal melee arbitration: hits resolve at full extension. Already-started
+// opposing blows finishing within 100 ms use headbutt > punch > kick > headbutt.
+// Compare their finish times while both windups are known, without delaying a
+// single strike or allowing a later dodge to undo damage. Vomit never uses RPS.
 
 import { playAttackSound } from '../audio/audio.js';
 
@@ -20,6 +15,10 @@ import { playAttackSound } from '../audio/audio.js';
 export const STRIKE_REACH_PX = 80;
 export const ATTACK_COOLDOWN_MS = 700; // recovery after a blow ends or a hit lands
 export const HIT_DAMAGE = 1;
+export const HIT_KNOCKBACK_PX = 100;
+export const TIE_BUFFER_MS = 100;
+
+const BEATS = { headbutt: 'punch', punch: 'kick', kick: 'headbutt' };
 
 /**
  * True when the target's hitbox lies in front of the attacker, close enough
@@ -51,25 +50,45 @@ export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
 }
 
 /**
- * Resolves one blow at the finish of the attacker's animation. The hit
- * interrupts the struck character's own attack (blows are traded, not
- * doubled up) and lands only on a target that can currently be struck
- * (an unengaged boss just takes the punch without a scratch).
- *
- * @param {Actor} attacker
- * @param {Actor|null} target Best target in reach, or null for a whiff.
- * @returns {'hit'|'miss'} What happened, for sounds and stats.
+ * Resolves a melee blow at full extension. A competing, already-started melee
+ * attack inside the tie window can beat it even if its extension comes later;
+ * that winner still has to reach its own extension and pass the hitbox check.
+ * Equal moves favor the earlier finish; exactly equal finishes draw.
+ * @returns {'hit'|'miss'} Outcome for sounds and blood.
  */
-export function resolveStrike(attacker, target) {
+export function resolveStrike(attacker, target, solids = []) {
     attacker.attackResolved = true;
 
-    const connects = target && target.canBeHit() && isStrikeInRange(attacker, target);
+    const connects = target && target.canBeHit() && !target.jumping && target.drawOffsetY <= 0
+        && isStrikeInRange(attacker, target);
     if (!connects) {
         playAttackSound(attacker.name, 'miss');
         return 'miss';
     }
 
-    target.takeDamage(HIT_DAMAGE);
+    const move = attacker.attackMove?.type;
+    const counter = target.attackMove?.type;
+    if (BEATS[move] && BEATS[counter] && target.attacking && !target.attackResolved
+        && attacker.canBeHit() && !attacker.jumping && attacker.drawOffsetY <= 0
+        && isStrikeInRange(target, attacker)) {
+        const finishDelta = attacker.attackFinishInMs() - target.attackFinishInMs();
+        if (Math.abs(finishDelta) <= TIE_BUFFER_MS) {
+            if (BEATS[counter] === move || (move === counter && finishDelta > 0)) {
+                playAttackSound(attacker.name, 'miss');
+                return 'miss';
+            }
+            if (move === counter && finishDelta === 0) {
+                target.attackResolved = true;
+                playAttackSound(attacker.name, 'miss');
+                playAttackSound(target.name, 'miss');
+                return 'miss';
+            }
+        }
+    }
+
+    const direction = Math.sign(target.x + target.hitbox.x + target.hitbox.w / 2
+        - (attacker.x + attacker.hitbox.x + attacker.hitbox.w / 2)) || attacker.facing;
+    target.takeDamage(HIT_DAMAGE, direction, solids);
     playAttackSound(attacker.name, 'hit');
     return 'hit';
 }

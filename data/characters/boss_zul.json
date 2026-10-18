@@ -10,6 +10,6 @@
     "deathFrames": 4,
     "hitbox": { "x": 55, "y": 120, "w": 40, "h": 25 },
     "moves": [
-        { "row": 1, "type": "headbutt" }
+        { "row": 1, "type": "vomit" }
     ]
 }

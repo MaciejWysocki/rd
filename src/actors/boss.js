@@ -66,18 +66,14 @@ export default class Boss extends Enemy {
         this.vx = 0;
     }
 
-    /**
-     * The combined attack resolves itself: at full extension the vomit flies
-     * instead of a melee blow (`attackResolved` is set here, so play-state's
-     * melee resolution skips the boss). After defeat only the last arc of a
-     * flying burst finishes — no fresh attacks, no posthumous damage.
-     */
-    update(dt, solids, target = null) {
-        super.update(dt, solids, target);
-        if (!this.defeated && this.attacking && this.isAttackAtFullExtension() && !this.attackResolved) {
-            this.attackResolved = true; // the vomit replaces the melee blow
-            this.vomit.spawn(this, this.facing);
-        }
+    /** Called in finish-time order alongside melee strikes, but never uses RPS. */
+    releaseVomit() {
+        this.attackResolved = true;
+        this.vomit.spawn(this, this.facing);
+    }
+
+    /** Flying bursts finish after defeat, but cannot deal posthumous damage. */
+    updateVomit(dt, target = null) {
         const livingTarget = this.defeated ? null : target;
         const outcome = this.vomit.update(dt, livingTarget);
         if (livingTarget) {
