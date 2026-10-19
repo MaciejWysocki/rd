@@ -8,16 +8,19 @@
     "sections": [
         {
             "name": "Zielona 3",
-            "highlight": [{ "x": 158, "y": 288, "position": "sklep" }],        
+            "highlight": [{ "x": 158, "y": 288, "position": [450, 460] }],        
             "interactions": [
                 {
                     "id": "sklep", "type": "walkable",
                     "x1": 450, "x2": 460,
-                    "trigger": {
+                    "trigger": [{
                         "on": "enter",
-                        "sounds": [[0], [1, 2]],
-                        "mission": { "0": 1 }
-                    }
+                        "mission": { "0": 1 },
+                        "stay": 3000
+                    }, {
+                        "on": "enter",
+                        "stay": 1000
+                    }]
                 }
             ],
             "enemies": [
