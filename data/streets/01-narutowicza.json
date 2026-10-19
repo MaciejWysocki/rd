@@ -8,7 +8,7 @@
     "sections": [
         {
             "name": "Zielona 3",
-            "highlight": { "x": 158, "y": 288, "position": "sklep" },        
+            "highlight": [{ "x": 158, "y": 288, "position": "sklep" }],        
             "interactions": [
                 {
                     "id": "sklep", "type": "walkable",
@@ -37,7 +37,7 @@
                 "on": "enter",
                 "mission": { "1": 2 }
             },
-            "highlight": { "x": 1427, "y": 573, "mission": [0] },
+            "highlight": [{ "x": 1427, "y": 573, "mission": [0] }],
             "boss": {
                 "id": "zul-mietek",
                 "type": "zul-mietek",
