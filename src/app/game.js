@@ -1,18 +1,18 @@
-// src/game/Game.js
-
-// Import the persistent State class
-import State from '../save/state.js';
-
-/**
- * Game class manages the main game loop and state transitions.
- * It uses requestAnimationFrame to drive the loop with delta time.
- * It holds a persistent State instance and a current state
- * which must expose `update(deltaTime)` and `draw()` methods.
- */
+// src/app/game.js
+//
+// game.js
+//
+// The game loop and the screen switch. It uses requestAnimationFrame to drive
+// the loop with delta time (milliseconds) and holds the session — the state
+// that survives a screen change. The current screen must expose `update(dt)`
+// and `draw()`.
 
 export default class Game {
-    constructor() {
-        this.state = new State();
+    /**
+     * @param {Session} session The session shared by the screens.
+     */
+    constructor(session) {
+        this.session = session;
         this.currentState = null;
         this.lastTimestamp = 0;
         this.running = false;

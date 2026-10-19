@@ -8,56 +8,67 @@
     "sections": [
         {
             "name": "Zielona 3",
-            "highlight": [{ "x": 158, "y": 288, "position": [400, 500] }],        
+            "overlays": [
+                { "x": 158, "y": 288, "when": { "position": [400, 500] } }
+            ],
             "interactions": [
                 {
-                    "id": "sklep", "type": "walkable",
-                    "x1": 400, "x2": 500,
-                    "trigger": [{
-                        "on": "enter",
-                        "mission": { "0": 1 },
-                        "stay": 3000,
-                        "give": "beer",
-                        "cost": 1
-                    }, {
-                        "on": "enter",
-                        "stay": 1000
-                    }]
+                    "id": "sklep",
+                    "type": "walkable",
+                    "x1": 400,
+                    "x2": 500,
+                    "triggers": [
+                        {
+                            "when": { "mission": [0] },
+                            "stay": 3000,
+                            "effects": [
+                                { "mission": 1 },
+                                { "item": "beer" },
+                                { "money": -1 }
+                            ]
+                        },
+                        { "stay": 1000 }
+                    ]
                 }
             ],
             "enemies": [
                 {
                     "id": "lysy-blokers",
                     "type": "lysy-blokers",
-                    "trigger": "distance",
-                    "distance": 300,
                     "x": 1450,
-                    "y": 598
+                    "y": 598,
+                    "fight": { "type": "distance", "distance": 300 }
                 },
                 {
                     "id": "lysy-blokers",
                     "type": "lysy-blokers",
-                    "trigger": "distance",
-                    "distance": 300,
                     "x": 1050,
-                    "y": 598
+                    "y": 598,
+                    "fight": { "type": "distance", "distance": 300 }
                 }
             ]
         },
         {
             "name": "Narutowicza 6",
-            "trigger": {
-                "on": "enter",
-                "mission": { "1": 2 }
-            },
-            "highlight": [{ "x": 1427, "y": 573, "mission": [0] }],
-            "boss": {
-                "id": "zul-mietek",
-                "type": "zul-mietek",
-                "mission": [1, 2],                    
-                "trigger": "always",
-                "x": 1450, "y": 598
-            }
+            "onEnter": [
+                {
+                    "when": { "mission": [1] },
+                    "effects": [ { "mission": 2 } ]
+                }
+            ],
+            "overlays": [
+                { "x": 1427, "y": 573, "when": { "mission": [0] } }
+            ],
+            "bosses": [
+                {
+                    "id": "zul-mietek",
+                    "type": "zul-mietek",
+                    "x": 1450,
+                    "y": 598,
+                    "fight": { "type": "always" },
+                    "presentWhen": { "mission": [1, 2] }
+                }
+            ]
         }
     ]
 }

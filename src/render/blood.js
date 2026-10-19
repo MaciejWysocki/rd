@@ -8,7 +8,7 @@
 // line (the struck character's feet), where the stains stay until the section
 // is left. Purely visual — combat and HP never look here.
 
-import { FRAME_SIZE } from '../actors/actor.js';
+import { FRAME_SIZE } from '../domain/content/asset-conventions.js';
 
 const PARTICLE_SIZE_PX = 3;
 const PARTICLES_PER_HIT = 12;

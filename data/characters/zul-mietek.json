@@ -3,6 +3,7 @@
     "sprite": "zul-mietek",
     "hp": 12,
     "bloodOnTarget": false,
+    "behavior": "sentry",
     "walkSpeed": 90,
     "walkFrameMs": 80,
     "attackFrameMs": 150,

@@ -14,7 +14,8 @@
 // Icons are drawn at their natural size and spaced by GAP; layout is
 // computed from the images, so it does not depend on asset dimensions.
 
-const HUD_DIR = 'assets/hud/';
+import { hudIconPath } from '../domain/content/asset-conventions.js';
+
 const X = 16;
 const Y = 16;
 const GAP = 8;
@@ -27,7 +28,7 @@ function getImage(name) {
     let img = images.get(name);
     if (!img) {
         img = new Image();
-        img.src = `${HUD_DIR}${name}.png`;
+        img.src = hudIconPath(name);
         images.set(name, img);
     }
     return img;

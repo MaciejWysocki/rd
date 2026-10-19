@@ -1,11 +1,15 @@
-// src/actors/actor.js
+// src/domain/actors/actor.js
 //
 // actor.js
 //
-// Universal base class for all characters (player, NPCs, bosses).
-// All statistics come from a character config file (data/characters/<type>.json):
-// speeds, hitbox, sprite and the move set. Owns position, collision box,
-// sprite-sheet and row-based animation.
+// Universal base class for all characters (player, enemies). Pure domain
+// code: it never touches the DOM — the sprite sheet is injected by the
+// application layer and only the interface { drawFrame(ctx, row, frame, x, y,
+// facing) } (plus an optional load()) is required.
+//
+// All statistics come from the normalized Character model (the content layer
+// builds it from data/characters/<type>.json): speeds, hitbox, sprite and the
+// move set. Owns position, collision box and row-based animation.
 //
 // Sprite-sheet convention: 150x150 frames, one animation per row.
 //   row 0 (ROW_WALK) - walk cycle, 8 frames
@@ -18,10 +22,9 @@
 // frame of the move's group and then holds there (the "full stretch" where the
 // hit is resolved); the caller decides when to end it.
 
-import SpriteSheet from '../render/sprite-sheet.js';
-import { ATTACK_COOLDOWN_MS, HIT_KNOCKBACK_PX } from './combat.js';
+import { ATTACK_COOLDOWN_MS, HIT_KNOCKBACK_PX } from '../combat/combat.js';
+import { FRAME_SIZE } from '../content/asset-conventions.js';
 
-export const FRAME_SIZE = 150;
 export const ROW_WALK = 0;
 
 const WALK_FRAMES = 8;
@@ -38,36 +41,33 @@ const DEATH_SHIFT_PX = 40;
 export default class Actor {
     /**
      * @param {object} options
-     * @param {number} options.x   Frame top-left X in world px.
-     * @param {number} options.y   Frame top-left Y in world px.
-     * @param {object} options.def Character config (data/characters/<type>.json).
+     * @param {number} options.x         Frame top-left X in world px.
+     * @param {number} options.y         Frame top-left Y in world px.
+     * @param {object} options.character Normalized Character model.
+     * @param {object} options.sheet      Sprite sheet: { drawFrame(ctx, row, frame, x, y, facing) }.
+     * @param {string|null} options.id    Street-entity id (the label of the entity).
      */
-    constructor({ x = 0, y = 0, def, id = null }) {
-        if (!def) throw new Error('Actor wymaga definicji postaci (def)');
-        this.def = def;
+    constructor({ x = 0, y = 0, character, sheet, id = null }) {
+        if (!character) throw new Error('Actor wymaga modelu postaci (character)');
+        if (!sheet) throw new Error('Actor wymaga arkusza sprite\'ow (sheet)');
+        this.character = character;
+        this.sheet = sheet;
         this.id = id;
-        this.name = def.name;
+        this.name = character.name;
         this.x = x;
         this.y = y;
         this.vx = 0;
         this.facing = 1;
-        this.walkSpeed = def.walkSpeed;
-        this.walkFrameMs = def.walkFrameMs;
-        this.attackFrameMs = def.attackFrameMs;
-        this.hitbox = { ...def.hitbox };
-        this.moves = def.moves ?? [];
-        this.deathRow = def.deathRow ?? null;
-        this.deathFrames = def.deathFrames ?? DEATH_FRAMES;
+        this.walkSpeed = character.walkSpeed;
+        this.walkFrameMs = character.walkFrameMs ?? 80;
+        this.attackFrameMs = character.attackFrameMs;
+        this.walkFrames = character.walkFrames ?? WALK_FRAMES;
+        this.attackFrames = character.attackFrames ?? ATTACK_FRAMES;
+        this.hitbox = { ...character.hitbox };
+        this.moves = character.moves ?? [];
+        this.deathRow = character.deathRow ?? null;
+        this.deathFrames = character.deathFrames ?? DEATH_FRAMES;
         this.deathElapsed = 0;
-
-        const rows = Math.max(0, ...this.moves.map(m => m.row), this.deathRow ?? -1) + 1;
-        const rowFrames = Array.from({ length: rows }, () => ATTACK_FRAMES);
-        rowFrames[ROW_WALK] = WALK_FRAMES;
-        for (const move of this.moves) {
-            if (move.alternate) rowFrames[move.row] = ATTACK_FRAMES * 2;
-        }
-        if (this.deathRow !== null) rowFrames[this.deathRow] = this.deathFrames;
-        this.sheet = new SpriteSheet(`assets/sprites/${def.sprite}.png`, FRAME_SIZE, rowFrames);
 
         this.row = ROW_WALK;
         this.frame = 0;
@@ -82,19 +82,21 @@ export default class Actor {
 
         // HP counts down to defeat. A blow resolves once at full extension;
         // recovery is per character (0 for Rudy: every press is a punch).
-        this.hp = def.hp ?? 1;
-        this.maxHp = this.hp;
+        this.hp = character.hp ?? 1;
+        this.maxHp = character.maxHp ?? this.hp;
         this.defeated = false;
         this.attackResolved = false;
         this.attackCooldownMs = 0;
-        this.recoveryMs = def.recoveryMs ?? ATTACK_COOLDOWN_MS;
+        this.recoveryMs = character.recoveryMs ?? ATTACK_COOLDOWN_MS;
         // Whether this character's blows make the target bleed (owner 2026-10-15:
         // zul-mietek does not — `bloodOnTarget: false` in his config).
-        this.bloodOnTarget = def.bloodOnTarget !== false;
+        this.bloodOnTarget = character.bloodOnTarget !== false;
     }
 
+    /** Resolves when the injected sheet is ready (the sheet may expose load()). */
     load() {
-        return this.sheet.load();
+        if (typeof this.sheet?.load === 'function') return this.sheet.load();
+        return Promise.resolve(this.sheet);
     }
 
     /**
@@ -108,7 +110,7 @@ export default class Actor {
         this.attackMove = move;
         this.attackStep = 0;
         this.attackElapsedMs = 0;
-        this.attackFrameBase = move.alternate && this.attackCount % 2 === 1 ? ATTACK_FRAMES : 0;
+        this.attackFrameBase = move.alternate && this.attackCount % 2 === 1 ? this.attackFrames : 0;
         this.attackCount += 1;
         this.row = move.row;
         this.frame = this.attackFrameBase;
@@ -133,15 +135,15 @@ export default class Actor {
 
     /** True once the attack has reached its last frame (full stretch; this is where the hit is resolved). */
     isAttackAtFullExtension() {
-        return this.attacking && this.attackStep >= ATTACK_FRAMES - 1;
+        return this.attacking && this.attackStep >= this.attackFrames - 1;
     }
 
     /** Signed time to full extension; negative means it finished earlier this frame. */
     attackFinishInMs() {
-        return (ATTACK_FRAMES - 1) * this.attackFrameMs - this.attackElapsedMs;
+        return (this.attackFrames - 1) * this.attackFrameMs - this.attackElapsedMs;
     }
 
-    /** True while this character can be struck (a boss before its fight cannot). */
+    /** True while this character can be struck (a sentry before its fight cannot). */
     canBeHit() {
         return !this.defeated;
     }
@@ -196,14 +198,14 @@ export default class Actor {
         this.frameTimer += dt * speedFactor;
         while (this.frameTimer >= this.walkFrameMs) {
             this.frameTimer -= this.walkFrameMs;
-            this.frame = (this.frame + 1) % WALK_FRAMES;
+            this.frame = (this.frame + 1) % this.walkFrames;
         }
     }
 
     _updateAttack(dt) {
         this.attackElapsedMs += dt;
         this.frameTimer += dt;
-        while (this.frameTimer >= this.attackFrameMs && this.attackStep < ATTACK_FRAMES - 1) {
+        while (this.frameTimer >= this.attackFrameMs && this.attackStep < this.attackFrames - 1) {
             this.frameTimer -= this.attackFrameMs;
             this.attackStep += 1;
         }
@@ -229,7 +231,7 @@ export default class Actor {
 
     /**
      * Spawns as an already-defeated corpse at the given spot — used when a kill
-     * is persisted in the global State and the section is re-entered.
+     * is persisted in the session and the section is re-entered.
      * @param {{x:number, y:number, facing:number}} position Where the body lies.
      */
     spawnDefeated({ x, y, facing }) {

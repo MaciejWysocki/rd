@@ -1,21 +1,24 @@
-// src/game/end-state.js
+// src/app/end-screen.js
 //
-// end-state.js
+// end-screen.js
 //
-// The shared game end screen (PLAN.md P0.5/P0.6): defeat and victory work the
-// same and look the same. The game freezes and a two-thirds-of-the-screen
-// panel takes over the frozen scene: a big result message ("PRZEGRAŁEŚ!" /
-// "GRATULACJE! WYGRAŁEŚ GRĘ!"), the session statistics from the global State
-// (game time, defeated enemies, HP and money left) and a restart button that
-// starts a fresh game — a click on the button or Enter; Space does NOT restart
-// (owner 2026-10-15: hitting Space while reading the win screen must not wipe
-// it). On defeat the death music (`game-over.mp3`) plays ONCE behind the panel;
-// on victory the victory jingle (`<street>-congratulations`) plays ONCE — no
-// loops: after either ends the panel stays silent (owner 2026-10-14/15). There
-// are no saves anywhere: the restart rebuilds the whole game from the character
-// config, exactly like booting it.
+// The shared game end screen: defeat and victory work the same and look the
+// same. The game freezes and a two-thirds-of-the-screen panel takes over the
+// frozen scene: a big result message ("PRZEGRAŁEŚ!" / "GRATULACJE! WYGRAŁEŚ
+// GRĘ!"), the session statistics from the session (game time, defeated
+// enemies, HP and money left) and a restart button that starts a fresh game —
+// a click on the button or Enter; Space does NOT restart (owner 2026-10-15:
+// hitting Space while reading the win screen must not wipe it). On defeat the
+// death music (`game-over`) plays ONCE behind the panel; on victory the
+// victory jingle (`<street>-congratulations`) plays ONCE — no loops: after
+// either ends the panel stays silent (owner 2026-10-14/15). There are no saves
+// anywhere: the restart rebuilds the whole game from the character config,
+// exactly like booting it.
 
 import { playGameOverMusic, playCongratulations, stopAllAudio } from '../audio/audio.js';
+import {
+    GAME_OVER_TRACK, ENDFRAME_IMAGE, congratulationsTrack,
+} from '../domain/content/asset-conventions.js';
 
 // The result panel: a rectangle of 2/3 of the screen, centered.
 const PANEL_SCALE = 2 / 3;
@@ -24,29 +27,31 @@ const PANEL_SCALE = 2 / 3;
 const BUTTON_W = 400;
 const BUTTON_H = 80;
 
-export default class EndState {
+export default class EndScreen {
     /**
      * @param {object} deps
      * @param {CanvasRenderingContext2D} deps.ctx
-     * @param {State} deps.state   Global state — the statistics come from here.
+     * @param {Session} deps.session   The session — the statistics come from here.
      * @param {Keyboard} deps.keyboard
      * @param {'lost'|'won'} deps.result Which message the panel shows.
-     * @param {string} deps.streetName Street id — the victory jingle is `<street>-congratulations`.
+     * @param {string} deps.streetId   The street id — the victory jingle is `<street>-congratulations`.
+     * @param {string} deps.playerName The name of the player character (the statistics are keyed by it).
      * @param {Function} deps.onRestart Starts a fresh game.
      * @param {Function|null} deps.drawScene Renders the frozen gameplay scene behind the panel.
      */
-    constructor({ ctx, state, keyboard, result, streetName, onRestart, drawScene = null }) {
+    constructor({ ctx, session, keyboard, result, streetId, playerName, onRestart, drawScene = null }) {
         this.ctx = ctx;
-        this.state = state;
+        this.session = session;
         this.keyboard = keyboard;
         this.result = result;
-        this.streetName = streetName;
+        this.streetId = streetId;
+        this.playerName = playerName;
         this.onRestart = onRestart;
         this.drawScene = drawScene;
         this.restarting = false;
         this._onClick = e => this._handleClick(e);
         this.frameImage = new Image();
-        this.frameImage.src = 'assets/hud/endgame-frame.png';
+        this.frameImage.src = ENDFRAME_IMAGE;
     }
 
     onEnter() {
@@ -55,13 +60,13 @@ export default class EndState {
         this.keyboard.consumePress('Enter');
         // End-screen music, played ONCE (no loop): the death music on defeat,
         // the victory jingle when the game is won.
-        if (this.result === 'lost') playGameOverMusic();
-        else playCongratulations(this.streetName);
+        if (this.result === 'lost') playGameOverMusic(GAME_OVER_TRACK);
+        else playCongratulations(congratulationsTrack(this.streetId));
         this.ctx.canvas.addEventListener('click', this._onClick);
     }
 
     onExit() {
-        stopAllAudio(); // the fresh game starts its own ambience (play-state.js)
+        stopAllAudio(); // the fresh game starts its own ambience (play-screen.js)
         this.ctx.canvas.removeEventListener('click', this._onClick);
     }
 
@@ -105,14 +110,14 @@ export default class EndState {
 
         ctx.fillStyle = '#bbb';
         ctx.font = '20px "Press Start 2P"';
-        const seconds = Math.floor(this.state.playTimeMs / 1000);
+        const seconds = Math.floor(this.session.playTimeMs / 1000);
         const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-        const stats = this.state.stats.player ?? {};
+        const stats = this.session.stats[this.playerName] ?? {};
         const lines = [
             `Czas gry: ${time}`,
             `Pokonani wrogowie: ${stats.kills ?? 0}`,
             `Pozostałe HP: ${stats.hp ?? 0}`,
-            `Monety: ${this.state.money}`,
+            `Monety: ${this.session.money}`,
         ];
         lines.forEach((line, i) => ctx.fillText(line, width / 2, py + 195 + i * 42));
 
@@ -140,6 +145,7 @@ export default class EndState {
     _handleClick(e) {
         const canvas = this.ctx.canvas;
         const rect = canvas.getBoundingClientRect();
+        // The canvas is scaled on the page — the click is mapped back to the canvas pixels.
         const x = (e.clientX - rect.left) * (canvas.width / rect.width);
         const y = (e.clientY - rect.top) * (canvas.height / rect.height);
         const pw = canvas.width * PANEL_SCALE;

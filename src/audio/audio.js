@@ -7,7 +7,9 @@
 // if an mp3 matching the convention does not exist, playback is skipped
 // silently. All files live in assets/sounds/ and are mp3.
 //
-// Conventions:
+// The *names* of the tracks are built by domain/content/asset-conventions.js —
+// this module only plays them. The conventions are:
+//
 //   player-attack-miss / player-attack-hit          Rudy's attack, whether it landed
 //   <enemyName>-attack-miss / <enemyName>-attack-hit  e.g. lysy-blokers-attack-miss
 //   <bossName>-attack                              attack release, independent of impact
@@ -30,17 +32,19 @@
 //   game-over                                       death music on defeat, played
 //                                                     once behind the end screen
 
-const SOUND_DIR = 'assets/sounds/';
+import {
+    attackTrack, jumpTrack, soundPath, DEFAULT_AMBIENCE_TRACK,
+} from '../domain/content/asset-conventions.js';
 
 function play(name, { loop = false } = {}) {
-    const audio = new Audio(`${SOUND_DIR}${name}.mp3`);
+    const audio = new Audio(soundPath(name));
     audio.loop = loop;
     audio.play().catch(() => {}); // optional by convention: a missing file means silence
     return audio;
 }
 
 /**
- * Plays a sound by its file name (without the .mp3), e.g. "01-narutowicza-sklep-0".
+ * Plays a sound by its track name (without the .mp3), e.g. "01-narutowicza-sklep-0".
  * Every file is optional: a missing one means silence.
  */
 export function playSound(name) {
@@ -49,12 +53,12 @@ export function playSound(name) {
 
 /** Plays `<who>-attack` on release, or `<who>-attack-<outcome>` for a hit/miss. */
 export function playAttackSound(who, outcome = null) {
-    play(outcome ? `${who}-attack-${outcome}` : `${who}-attack`);
+    play(attackTrack(who, outcome));
 }
 
 /** Plays `<who>-jump` (e.g. player-jump) when a character jumps. */
 export function playJumpSound(who) {
-    play(`${who}-jump`);
+    play(jumpTrack(who));
 }
 
 let ambient = null;
@@ -67,12 +71,13 @@ let congratsMusic = null;
  * Starts the looping ambience for regular play, replacing any track already
  * playing. The section's own `<street>-<section>-ambient` wins when it exists;
  * otherwise the default street ambience (`ambience.mp3`) plays instead.
+ * @param {string} track The track name of the section.
  */
-export function startAmbient(street, section) {
+export function startAmbient(track) {
     stopBossMusic();
     stopBossIntro();
     stopAmbient();
-    ambient = playAmbientWithFallback(`${street}-${section}-ambient`);
+    ambient = playAmbientWithFallback(track);
     armStartupRetry();
 }
 
@@ -104,11 +109,11 @@ function armStartupRetry() {
  * active ambient layer (it may have been replaced before the error arrives).
  */
 function playAmbientWithFallback(name) {
-    const audio = new Audio(`${SOUND_DIR}${name}.mp3`);
+    const audio = new Audio(soundPath(name));
     audio.loop = true;
     audio.addEventListener('error', () => {
         if (ambient === audio) {
-            ambient = new Audio(`${SOUND_DIR}ambience.mp3`);
+            ambient = new Audio(soundPath(DEFAULT_AMBIENCE_TRACK));
             ambient.loop = true;
             playAudibly(ambient);
         }
@@ -143,9 +148,9 @@ export function stopAmbient() {
  * of the boss music when the fight starts. The handle is kept so a long
  * sentence is never dropped mid-play.
  */
-export function playBossIntro(street) {
+export function playBossIntro(track) {
     stopBossIntro();
-    bossIntro = play(`${street}-boss-intro`);
+    bossIntro = play(track);
 }
 
 export function stopBossIntro() {
@@ -160,10 +165,10 @@ export function stopBossIntro() {
  * P4.3); the introduction sentence rides on top of it.
  * Missing file = silence.
  */
-export function startBossMusic(street) {
+export function startBossMusic(track) {
     stopAmbient();
     stopBossMusic();
-    bossMusic = play(`${street}-boss-music`, { loop: true });
+    bossMusic = play(track, { loop: true });
 }
 
 export function stopBossMusic() {
@@ -176,9 +181,9 @@ export function stopBossMusic() {
  * Death music (`game-over`) behind the end screen, played ONCE on defeat —
  * no loop: the panel stays silent after it ends (owner 2026-10-14).
  */
-export function playGameOverMusic() {
+export function playGameOverMusic(track) {
     stopAllAudio();
-    gameOverMusic = play('game-over');
+    gameOverMusic = play(track);
 }
 
 export function stopGameOverMusic() {
@@ -191,9 +196,9 @@ export function stopGameOverMusic() {
  * The victory jingle (`<street>-congratulations`, e.g. 01-narutowicza-congratulations)
  * behind the win screen, played ONCE — no loop (owner 2026-10-15).
  */
-export function playCongratulations(street) {
+export function playCongratulations(track) {
     stopAllAudio();
-    congratsMusic = play(`${street}-congratulations`);
+    congratsMusic = play(track);
 }
 
 export function stopCongratulations() {

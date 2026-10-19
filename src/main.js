@@ -1,11 +1,23 @@
-import Game from './game/game.js';
-import WorldManager from './world/world-manager.js';
-import { listStreets } from './world/street-registry.js';
-import Player from './actors/player.js';
-import { loadCharacterDef } from './actors/character-defs.js';
+// src/main.js
+//
+// main.js — the composition root of the game.
+//
+// It wires the content repository (the JSON configs), the session (the state
+// that survives a screen change), the world (the streets and the sections)
+// and the screens together, and starts the loop. Nothing else knows how the
+// game is assembled.
+
+import Game from './app/game.js';
+import World from './world/world.js';
+import ContentRepository from './domain/content/content-repository.js';
+import Session from './domain/quest/session.js';
+import Player from './domain/actors/player.js';
 import Keyboard from './input/keyboard.js';
-import PlayState from './game/play-state.js';
-import EndState from './game/end-state.js';
+import PlayScreen from './app/play-screen.js';
+import EndScreen from './app/end-screen.js';
+import SpriteSheet from './render/sprite-sheet.js';
+import { playJumpSound } from './audio/audio.js';
+import { FRAME_SIZE, spritePath } from './domain/content/asset-conventions.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -13,42 +25,54 @@ const ctx = canvas.getContext('2d');
 await document.fonts.load('16px "Press Start 2P"');
 ctx.font = '16px "Press Start 2P"';
 
-const game = new Game();
+const content = new ContentRepository();
+const session = new Session();
+const world = new World(session, content);
+world.setStreets(await content.listStreets());
 
-// The streets of the game, in play order (data/streets/<number>-<name>.json).
-const world = new WorldManager(game.state);
-world.setStreets(await listStreets());
+const playerCharacter = await content.getCharacter('player');
+if (!playerCharacter) throw new Error('Brak postaci gracza: data/characters/player.json');
 
-const playerDef = await loadCharacterDef('player');
-
+// The keys the game swallows: the moves of the player and the jump.
 const gameKeys = [
-    ...playerDef.moves.map(m => m.key).filter(Boolean),
-    playerDef.jumpKey,
+    ...playerCharacter.moves.map(move => move.key),
+    playerCharacter.jump?.key,
 ].filter(Boolean);
 const keyboard = new Keyboard(undefined, gameKeys);
 
+const game = new Game(session);
+
 /**
- * Builds a fresh game: clean State (stats and money seeded from the character
- * config), the first street of the game, Rudy at the start line. This is both
- * the boot path and the restart from the game over screen — there are no saves.
+ * Builds a fresh game: a clean session (stats and money seeded from the
+ * character config), the first street of the game, Rudy at the start line.
+ * This is both the boot path and the restart from the end screen — there are
+ * no saves.
  */
 async function startFreshGame() {
-    game.state.resetForNewGame(playerDef);
+    session.resetForNewGame(playerCharacter);
     await world.gotoStreet(0);
 
-    const player = new Player({ x: 50, y: 598, def: playerDef });
+    const sheet = new SpriteSheet(
+        spritePath(playerCharacter.sprite),
+        FRAME_SIZE,
+        playerCharacter.framesPerRow,
+    );
+    const player = new Player({ x: 50, y: 598, character: playerCharacter, sheet });
+    // The domain stays free of the audio adapter: the jump sound is hooked in here.
+    player.onJump = () => playJumpSound(playerCharacter.name);
     await player.load();
 
-    const playState = new PlayState({
-        ctx, world, player, keyboard, state: game.state,
-        onGameEnd: result => game.changeState(new EndState({
-            ctx, state: game.state, keyboard, result,
-            streetName: world.streetId,
-            drawScene: () => playState.draw(),
+    const playScreen = new PlayScreen({
+        ctx, world, player, keyboard, session,
+        onGameEnd: result => game.changeState(new EndScreen({
+            ctx, session, keyboard, result,
+            streetId: world.streetId,
+            playerName: playerCharacter.name,
+            drawScene: () => playScreen.draw(),
             onRestart: startFreshGame,
         })),
     });
-    game.changeState(playState);
+    game.changeState(playScreen);
 }
 
 await startFreshGame();

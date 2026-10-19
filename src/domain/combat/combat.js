@@ -1,4 +1,4 @@
-// src/actors/combat.js
+// src/domain/combat/combat.js
 //
 // combat.js
 //
@@ -6,12 +6,11 @@
 // opposing blows finishing within 100 ms use headbutt > punch > kick > headbutt.
 // Compare their finish times while both windups are known, without delaying a
 // single strike or allowing a later dodge to undo damage. Vomit never uses RPS.
+//
+// The arbitration is pure domain code: it plays no sounds and spawns no blood
+// — it only returns the outcome, and the application layer turns the outcome
+// into sound and blood.
 
-import { playAttackSound } from '../audio/audio.js';
-
-// The blow connects hitbox-to-hitbox: from the attacker's hitbox front edge to
-// the target's hitbox near edge (owner 2026-10-13: revert the centre rule, the
-// slightly narrower character hitboxes are the fine-tuning).
 export const STRIKE_REACH_PX = 80;
 export const ATTACK_COOLDOWN_MS = 700; // recovery after a blow ends or a hit lands
 export const HIT_DAMAGE = 1;
@@ -25,7 +24,7 @@ const BEATS = { headbutt: 'punch', punch: 'kick', kick: 'headbutt' };
  * to be struck. Overlapping hitboxes are always in reach.
  * @param {Actor} attacker
  * @param {Actor} target
- * @param {number} [reachPx] Reach override (e.g. the boss's vomit range).
+ * @param {number} [reachPx] Reach override (e.g. a ranged attack's range).
  */
 export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
     const a = attacker.hitbox;
@@ -54,17 +53,15 @@ export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
  * attack inside the tie window can beat it even if its extension comes later;
  * that winner still has to reach its own extension and pass the hitbox check.
  * Equal moves favor the earlier finish; exactly equal finishes draw.
- * @returns {'hit'|'miss'} Outcome for sounds and blood.
+ * @returns {'hit'|'miss'|'draw'} Outcome of the blow — the application layer
+ *   turns it into sound and blood.
  */
 export function resolveStrike(attacker, target, solids = []) {
     attacker.attackResolved = true;
 
     const connects = target && target.canBeHit() && !target.jumping && target.drawOffsetY <= 0
         && isStrikeInRange(attacker, target);
-    if (!connects) {
-        playAttackSound(attacker.name, 'miss');
-        return 'miss';
-    }
+    if (!connects) return 'miss';
 
     const move = attacker.attackMove?.type;
     const counter = target.attackMove?.type;
@@ -73,15 +70,13 @@ export function resolveStrike(attacker, target, solids = []) {
         && isStrikeInRange(target, attacker)) {
         const finishDelta = attacker.attackFinishInMs() - target.attackFinishInMs();
         if (Math.abs(finishDelta) <= TIE_BUFFER_MS) {
-            if (BEATS[counter] === move || (move === counter && finishDelta > 0)) {
-                playAttackSound(attacker.name, 'miss');
-                return 'miss';
-            }
+            // The attacker lost the RPS tie (or the equal move finished later).
+            if (BEATS[counter] === move || (move === counter && finishDelta > 0)) return 'miss';
             if (move === counter && finishDelta === 0) {
+                // An exact tie: both attackers miss, the defender's blow is
+                // marked resolved so it cannot land later.
                 target.attackResolved = true;
-                playAttackSound(attacker.name, 'miss');
-                playAttackSound(target.name, 'miss');
-                return 'miss';
+                return 'draw';
             }
         }
     }
@@ -89,6 +84,5 @@ export function resolveStrike(attacker, target, solids = []) {
     const direction = Math.sign(target.x + target.hitbox.x + target.hitbox.w / 2
         - (attacker.x + attacker.hitbox.x + attacker.hitbox.w / 2)) || attacker.facing;
     target.takeDamage(HIT_DAMAGE, direction, solids);
-    playAttackSound(attacker.name, 'hit');
     return 'hit';
 }

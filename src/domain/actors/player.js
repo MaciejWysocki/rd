@@ -1,22 +1,27 @@
-// src/actors/player.js
+// src/domain/actors/player.js
 //
 // player.js
 //
-// The main character, Rudy — the only playable character. All statistics and
-// moves come from data/characters/player.json; each move is mapped to a key
-// there and draws from its own sprite row (an "alternate" move switches between
-// its two 4-frame groups on every other attack). Moves left/right with the
-// arrow keys and is blocked by section boundaries — when blocked he keeps
-// walking in place.
+// The main character, Rudy — the only playable character. Pure domain code:
+// the jump config comes from the normalized Character model and the sound is
+// left to the application layer (the optional `onJump` hook).
 //
-// Jump (jumpKey, default ArrowUp): a short vertical hop with the regular walk
-// animation playing through it — Rudy "walks in the air" — and the `<who>-jump`
-// sound. Side arrows stay live during the hop, so Rudy can drift left/right on
-// the fly. At a walkable spot the same key enters the interaction instead. The
-// hop is a draw offset, but combat treats an airborne character as out of
-// strike reach. Killed mid-air, the body finishes the hop before the game
-// freezes. The jump interrupts a windup immediately, never queues for later,
-// and cannot undo a hit that already landed.
+// All statistics and moves come from the player character; each move is
+// mapped to a key there and draws from its own sprite row (an "alternate"
+// move switches between its two 4-frame groups on every other attack). Moves
+// left/right with the arrow keys and is blocked by section boundaries — when
+// blocked he keeps walking in place.
+//
+// Jump (character.jump = { key, durationMs, heightPx }; null = no jump): a
+// short vertical hop with the regular walk animation playing through it —
+// Rudy "walks in the air" — and the `<who>-jump` sound played by the app
+// layer through the `onJump` hook. Side arrows stay live during the hop, so
+// Rudy can drift left/right on the fly. At a walkable spot the same key
+// enters the interaction instead. The hop is a draw offset, but combat treats
+// an airborne character as out of strike reach. Killed mid-air, the body
+// finishes the hop before the game freezes. The jump interrupts a windup
+// immediately, never queues for later, and cannot undo a hit that already
+// landed.
 //
 // There is no backward step any more (owner 2026-10-19): the retreat and its
 // ↓ key are gone — the jump is the only evasion.
@@ -32,26 +37,40 @@
 // dropped, there are no delays.
 
 import Actor from './actor.js';
-import { playJumpSound } from '../audio/audio.js';
 
 // Debug/testing aid: holding Shift (either one) moves Rudy
 // DEBUG_SPEED_MULTIPLIER times faster; the walk cycle scales with |vx|.
 const DEBUG_SPEED_MULTIPLIER = 4;
+
+const DEFAULT_JUMP_KEY = 'ArrowUp';
+const DEFAULT_JUMP_DURATION_MS = 600;
+const DEFAULT_JUMP_HEIGHT_PX = 120;
 
 function debugSpeedMultiplier(keyboard) {
     return keyboard.isDown('ShiftLeft') || keyboard.isDown('ShiftRight') ? DEBUG_SPEED_MULTIPLIER : 1;
 }
 
 export default class Player extends Actor {
-    constructor({ x, y, def }) {
-        super({ x, y, def });
+    /**
+     * @param {object} options
+     * @param {number} options.x         Frame top-left X in world px.
+     * @param {number} options.y         Frame top-left Y in world px.
+     * @param {object} options.character Normalized Character model (player).
+     * @param {object} options.sheet      Sprite sheet: { drawFrame(ctx, row, frame, x, y, facing) }.
+     */
+    constructor({ x, y, character, sheet, id = null }) {
+        super({ x, y, character, sheet, id });
         this.hidden = false; // set by scripted sequences, e.g. walking into a shop
-        this.jumpKey = def.jumpKey ?? 'ArrowUp';
-        this.jumpDurationMs = def.jumpDurationMs ?? 600;
-        this.jumpHeightPx = def.jumpHeightPx ?? 120;
+        const jump = character.jump ?? null;
+        this.canJump = Boolean(jump);
+        this.jumpKey = jump ? (jump.key ?? DEFAULT_JUMP_KEY) : null;
+        this.jumpDurationMs = jump ? (jump.durationMs ?? DEFAULT_JUMP_DURATION_MS) : 0;
+        this.jumpHeightPx = jump ? (jump.heightPx ?? DEFAULT_JUMP_HEIGHT_PX) : 0;
         this.jumping = false;
         this.jumpElapsed = 0;
         this.moveQueue = []; // presses waiting for the current blow to end
+        // The app layer hooks the jump sound here (the domain stays pure).
+        this.onJump = null;
     }
 
     /**
@@ -61,7 +80,7 @@ export default class Player extends Actor {
      */
     update(dt, keyboard, solids) {
         // Consume the jump press even while a hop is running: no buffer.
-        keyboard.consumePress(this.jumpKey);
+        if (this.jumpKey) keyboard.consumePress(this.jumpKey);
         if (this.defeated) {
             this.vx = 0;
             if (this.jumping) this._advanceJump(dt);
@@ -74,11 +93,11 @@ export default class Player extends Actor {
             if (move.key && keyboard.consumePress(move.key)) this.moveQueue.push(move);
         }
 
-        if (!this.jumping && keyboard.isDown(this.jumpKey)) {
+        if (this.canJump && !this.jumping && keyboard.isDown(this.jumpKey)) {
             this.endAttack();
             this.jumping = true;
             this.jumpElapsed = 0;
-            playJumpSound(this.name);
+            if (typeof this.onJump === 'function') this.onJump(this);
         }
         if (this.jumping) {
             this._updateJump(dt, keyboard, solids);

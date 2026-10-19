@@ -11,7 +11,7 @@
 // never sprays blood — the green squares are the whole effect. A player who
 // jumps over the spray is not hit (owner 2026-10-15).
 
-import { FRAME_SIZE } from '../actors/actor.js';
+import { FRAME_SIZE } from '../domain/content/asset-conventions.js';
 
 const PARTICLE_SIZE_PX = 5;
 const PARTICLES_PER_BURST = 40;    // enough squares to read as a visible spray (owner 2026-10-15)
