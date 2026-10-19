@@ -9,20 +9,24 @@
 //
 // Conventions:
 //   player-attack-miss / player-attack-hit          Rudy's attack, whether it landed
-//   <enemyName>-attack-miss / <enemyName>-attack-hit  e.g. lysyblokers-attack-miss
+//   <enemyName>-attack-miss / <enemyName>-attack-hit  e.g. lysy-blokers-attack-miss
 //   <bossName>-attack                              attack release, independent of impact
-//   <street>_<section>-ambient                      looping section ambience,
-//                                                     e.g. ulica-01_01-ambient
+//   <street>-<section>-ambient                     looping section ambience,
+//                                                     e.g. 01-narutowicza-1-ambient
 //   ambience                                        default street ambience (looping
 //                                                     street noise for regular play),
 //                                                     played when a section has no
 //                                                     ambient of its own
-//   boss-intro                                      the boss's introduction sentence,
+//   <street>-boss-music                            the fight music of a street,
+//                                                     e.g. 01-narutowicza-boss-music
+//   <street>-boss-intro                            the boss's introduction sentence,
 //                                                     played once on top of the boss
 //                                                     music when the fight starts
+//   <street>-<interaction>-<trigger>               the sound of an interaction,
+//                                                     e.g. 01-narutowicza-sklep-0
 //   <street>-congratulations                        the victory jingle, played once
 //                                                     behind the win screen,
-//                                                     e.g. ulica-01-congratulations
+//                                                     e.g. 01-narutowicza-congratulations
 //   game-over                                       death music on defeat, played
 //                                                     once behind the end screen
 
@@ -33,6 +37,14 @@ function play(name, { loop = false } = {}) {
     audio.loop = loop;
     audio.play().catch(() => {}); // optional by convention: a missing file means silence
     return audio;
+}
+
+/**
+ * Plays a sound by its file name (without the .mp3), e.g. "01-narutowicza-sklep-0".
+ * Every file is optional: a missing one means silence.
+ */
+export function playSound(name) {
+    return play(name);
 }
 
 /** Plays `<who>-attack` on release, or `<who>-attack-<outcome>` for a hit/miss. */
@@ -53,14 +65,14 @@ let congratsMusic = null;
 
 /**
  * Starts the looping ambience for regular play, replacing any track already
- * playing. The section's own `<street>_<section>-ambient` wins when it exists;
+ * playing. The section's own `<street>-<section>-ambient` wins when it exists;
  * otherwise the default street ambience (`ambience.mp3`) plays instead.
  */
 export function startAmbient(street, section) {
     stopBossMusic();
     stopBossIntro();
     stopAmbient();
-    ambient = playAmbientWithFallback(`${street}_${section}-ambient`);
+    ambient = playAmbientWithFallback(`${street}-${section}-ambient`);
     armStartupRetry();
 }
 
@@ -127,13 +139,13 @@ export function stopAmbient() {
 }
 
 /**
- * Plays `boss-intro` — the boss's introduction sentence — once, on top of the
- * boss music when the fight starts. The handle is kept so a long sentence is
- * never dropped mid-play.
+ * Plays `<street>-boss-intro` — the boss's introduction sentence — once, on top
+ * of the boss music when the fight starts. The handle is kept so a long
+ * sentence is never dropped mid-play.
  */
-export function playBossIntro() {
+export function playBossIntro(street) {
     stopBossIntro();
-    bossIntro = play('boss-intro');
+    bossIntro = play(`${street}-boss-intro`);
 }
 
 export function stopBossIntro() {
@@ -143,15 +155,15 @@ export function stopBossIntro() {
 }
 
 /**
- * Starts the looping `boss-music` track for a boss fight. It replaces the
- * ambient layer (highest active layer wins — audio layering comes in P4.3);
- * the introduction sentence rides on top of it.
+ * Starts the looping `<street>-boss-music` track for a boss fight. It replaces
+ * the ambient layer (highest active layer wins — audio layering comes in
+ * P4.3); the introduction sentence rides on top of it.
  * Missing file = silence.
  */
-export function startBossMusic() {
+export function startBossMusic(street) {
     stopAmbient();
     stopBossMusic();
-    bossMusic = play('boss-music', { loop: true });
+    bossMusic = play(`${street}-boss-music`, { loop: true });
 }
 
 export function stopBossMusic() {
@@ -176,7 +188,7 @@ export function stopGameOverMusic() {
 }
 
 /**
- * The victory jingle (`<street>-congratulations`, e.g. ulica-01-congratulations)
+ * The victory jingle (`<street>-congratulations`, e.g. 01-narutowicza-congratulations)
  * behind the win screen, played ONCE — no loop (owner 2026-10-15).
  */
 export function playCongratulations(street) {

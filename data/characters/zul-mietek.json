@@ -1,6 +1,6 @@
 {
-    "name": "boss_zul",
-    "sprite": "boss_zul",
+    "name": "zul-mietek",
+    "sprite": "zul-mietek",
     "hp": 12,
     "bloodOnTarget": false,
     "walkSpeed": 90,

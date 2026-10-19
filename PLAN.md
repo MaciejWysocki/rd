@@ -30,7 +30,7 @@ Companion docs: [AGENTS.md](AGENTS.md) (context & conventions — read first), [
 | 👑 4 | Boss framework, audio layering, UI menu | 0/3 | ⬜ |
 | 🧰 5 | Expansion & polish | 0/2 | ⬜ |
 
-Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and browser-verified (2026-10-18)**: finish-time RPS arbitration, immediate jump/retreat evasion and collision-aware 30 px knockback. P1.4 blood/corpses is also complete. Next up: **P1.3 — Move sets & per-character speeds**, including mission-based unlocks.
+Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and browser-verified (2026-10-18)**: finish-time RPS arbitration, immediate jump/retreat evasion and collision-aware 30 px knockback. P1.4 blood/corpses is also complete. **The street/mission configuration was migrated to the new schema and browser-verified (2026-10-19)**: the streets are played one after another by name, the mission (its stages and log lines) comes from the street config alone, the sections form a chain, the interactions are walkable spots and the enemies/bosses take their fight trigger from the config. Next up: **P1.3 — Move sets & per-character speeds**, including mission-based unlocks.
 
 ## 🔒 Locked design decisions (owner; includes answers from 2026-10-11)
 
@@ -51,7 +51,7 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 - If both attack animations finish within a **~100 ms tie buffer**, resolve Rock-Paper-Scissors: **headbutt beats punch, punch beats kick, kick beats headbutt**.
 - Range attacks like vomit never tie, they always hit unless retreated/jumped away.
 - **Movement and attack speeds differ per character** (parameters — players and enemies alike).
-- Move sets are configured per character by **key mapping + sprite row number** (`{ key, row, type: punch|kick|headbutt|vomit }`) — never hardcoded. Often just one move (the bald thug `lysyblokers` only headbutts); Rudy starts with a punch and gains headbutt + kick later, via missions.
+- Move sets are configured per character by **key mapping + sprite row number** (`{ key, row, type: punch|kick|headbutt|vomit }`) — never hardcoded. Often just one move (the bald thug `lysy-blokers` only headbutts); Rudy starts with a punch and gains headbutt + kick later, via missions.
 - PoC simplification: **trading single blows**, HP counts down from a few points to zero.
 
 ### Health, death, effects
@@ -62,20 +62,21 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 - **No XP, no leveling.** Progression and items are tied to missions; **each mission gives a slight stat boost** (`level`/`experience` in `State.stats` are dead weight — remove them, P0.7).
 
 ### Items & economy
-- The shop is **fully automated and invisible** — its entrance is part of the background art. The visit is **money-driven** (owner 2026-10-12): entering with coins plays `ulica-01_01-sklep.mp3` (the beer purchase) and the moment he **comes out of the shop the beer appears in the inventory and the coin disappears — same instant** (owner 2026-10-12, both HUD rows change together); entering with no coins plays `ulica-01-01-sklep2.mp3` and sends the player back out after **1 second** (no other logic). There is no shop UI at all.
+- The shop is **fully automated and invisible** — its entrance is part of the background art. The visit is a **walkable interaction** of the section (owner 2026-10-19): ↑ walks Rudy into the spot, the sound `assets/sounds/<street>-<interaction>-<trigger>.mp3` plays when he disappears there, he stays for the trigger's `stay` and walks back out. The trigger of the interaction is picked by the current **mission stage**; it may move the mission on and hand out an item for a price (`give` / `cost`) — the exchange happens 200 ms before he leaves. There is no shop UI at all.
 - **Mission items** stay in the inventory for the duration of the task (e.g. documents taken from someone and delivered elsewhere).
-- Items can drive the world: **possessing beer triggers the bum boss to spawn in another section**.
+- Items can drive the world: the **mission stage** decides what is in the world (which boss exists, which overlays are shown).
 
 ### Quests & world state
 - Two pillars: **combat and questing**.
-- One **main street mission** spanning all sections — deliberately **non-linear** (not 01 → 02 → …); moving back and forth is encouraged and progress may alter previously visited sections.
+- One **main street mission** spanning all sections — the `mission` field of the street config: an array of log lines where the index is the mission stage. The stage moves on through the transition maps in the config (section and interaction triggers); the HUD shows the street's opening objective and the current one. Moving back and forth between the sections is encouraged and progress may alter previously visited sections.
 - **One side quest per section**, independent of the others, scoped to the player's current section.
 - Tasks **alter world state**: e.g. helping a shopkeeper makes the shop open later — enter, get an item, or bypass a fight.
 
 ### Bosses
-- A boss lives in a **fixed section**; copying the config entity creates a **separate boss instance**; `"boss": null` = no boss in that section.
-- Three types: (a) **section boss** — a dangerous spot where entering triggers the fight; (b) **side-mission boss** — appears in select sections, tied to a side quest; (c) **street-mission boss** — appears only after **all street-mission tasks for that section are completed** and specific conditions are met.
-- A boss fight opens with a **special animation + sound effect ("cutscene") that immobilizes the player** — generalize the existing `shop-entry.js` scripted-timeline pattern.
+- A boss lives in a **fixed section**; copying the config entity creates a **separate boss instance**; no `boss` in a section = no boss there.
+- The boss exists on the **mission stages** of its config entry (`"mission": [1, 2]`); its `trigger` (`always` / `distance` / `hit`) starts the fight.
+- Three types: (a) **section boss** — a dangerous spot where entering triggers the fight; (b) **side-mission boss** — appears in select sections, tied to a side quest; (c) **street-mission boss** — appears only on the street-mission stages of its section.
+- A boss fight opens with a **special animation + sound effect ("cutscene") that immobilizes the player** — generalize the existing `walkable-interaction.js` scripted-timeline pattern.
 - Sections also contain **neutral pedestrians (GTA-like)** whom the player may choose to fight.
 
 ### NPCs & dialogue
@@ -89,7 +90,7 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 
 ### UI
 - **Game over screen**: statistics + death music + restart button (see Health).
-- **HP / money: top-left HUD** (owner decision 2026-10-12) — hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per 5 PLN coin). **Mission logs: two reserved rows at top-right above enemy HP** (implemented + browser-verified 2026-10-19): "Kup piwo" remains on row 1; purchase adds "Znajdz ustronne aby wypić piwo" on row 2; engaging `boss_zul` changes row 2 to "Pokonaj żula". Logs persist across sections and reset on restart.
+- **HP / money: top-left HUD** (owner decision 2026-10-12): hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per 5 PLN coin). **Mission logs: two reserved rows at top-right above enemy HP** (implemented + browser-verified 2026-10-19): row 1 shows the street's opening objective (`mission[0]`, e.g. "Kup piwo"), row 2 the current objective once the mission moved on ("Znajdź ustronne miejsce aby wypić piwo", later "Pokonaj żula"). The logs come from the street config only, survive section changes, are replaced with the next street's mission and reset on restart.
 - **Typography** (implemented + browser-verified 2026-10-19): all page and Canvas text uses the bundled `PressStart2P-Regular.ttf` (Press Start 2P); bootstrap loads it before gameplay. End-screen labels are sized to fit the pixel font.
 - A **collapsible menu** at the side/corner: stats, list of completed missions, current "street mission" status, and a **game timer**. Completing the street shows a **congratulatory message** (Phase 4).
 
@@ -102,36 +103,35 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 
 ## 🧪 Phase 0 — PoC: two sections, mechanics test bed (PRIORITY)
 
-Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` — plus the shop**; section 2 (`ulica-01/02`) holds the **bum boss**. Without beer in the inventory the bum **stands there and does not react**; with beer he **triggers an audio clip, boss music starts, and the fight begins**. Combat is **trading single blows** with a simple HP counter (a few points) down to zero. Defeating him shows a **congratulatory message**.
+Owner's scope: section 1 (`01-narutowicza`, "Zielona 3") holds **one enemy — `lysy-blokers` — plus the shop**; section 2 ("Narutowicza 6") holds the **bum boss**. Before the mission reaches stage 1 the bum **stands there and does not react**; from stage 1 on he **triggers an audio clip, boss music starts, and the fight begins**. Combat is **trading single blows** with a simple HP counter (a few points) down to zero. Defeating him ends the street — the next street follows, and after the last one a **congratulatory message**.
 
 - [x] ✅ **P0.1 — Character & move configuration (data-driven)** *(done in the 2026-10-12 pre-PoC refactor)*
-  - Files: `data/characters/*.json` (`player`, `lysyblokers`, `boss_zul`), `src/actors/character-defs.js`, `src/actors/actor.js`, `src/actors/player.js`, `src/actors/enemy.js`, `src/main.js`.
-  - Move set per character: `{ key, row, type: punch|kick|headbutt }` (4 frames per move row; `"alternate": true` alternates the row's two 4-frame groups on every other attack — Rudy's punch: 0–3 / 4–7 hands); walk stays row 0 (8 frames); per-character movement and attack speed parameters; player config also carries `jumpKey`/`jumpDurationMs`/`jumpHeightPx`. PoC moves: Rudy → punch (row 1), `lysyblokers` → headbutt, `boss_zul` → headbutt.
+  - Files: `data/characters/*.json` (`player`, `lysy-blokers`, `zul-mietek`), `src/actors/character-defs.js`, `src/actors/actor.js`, `src/actors/player.js`, `src/actors/enemy.js`, `src/main.js`.
+  - Move set per character: `{ key, row, type: punch|kick|headbutt }` (4 frames per move row; `"alternate": true` alternates the row's two 4-frame groups on every other attack — Rudy's punch: 0–3 / 4–7 hands); walk stays row 0 (8 frames); per-character movement and attack speed parameters; player config also carries `jumpKey`/`jumpDurationMs`/`jumpHeightPx`. PoC moves: Rudy → punch (row 1), `lysy-blokers` → headbutt, `zul-mietek` → headbutt.
   - Acceptance (verified in browser 2026-10-12): the game runs on configs alone; changing a move's key/row/type or a character's speeds is a JSON-only edit.
 - [x] ✅ **P0.2 — Simple combat (trading single blows)** *(done + verified in browser 2026-10-12)*
   - Files: `src/actors/*` (new `combat.js`), `src/game/play-state.js`.
   - First-to-strike lands the hit; damage applies at the finish of the attack animation; HP is a few points counting down; HP 0 → character defeated, lying on the ground until section exit. A landed hit interrupts the defender's blow. Recovery is per character (`recoveryMs`) — **the player has none: every Space press is a punch** (owner 2026-10-12, no player delays); enemies hold the full-stretch frame (`attackHoldMs`) before recovering.
   - Acceptance (verified 2026-10-12): Rudy beat `lysyblokers` (3 blows, retreat between strikes); Rudy was defeated by him (→ P0.6 screen). Damage is observable at full extension.
-- [x] ✅ **P0.3 — Automated invisible shop (beer)** *(done + verified in browser 2026-10-12)*
-  - Files: `src/game/shop-entry.js`, `src/game/play-state.js`, street JSON (`sound`, `soundNoMoney`), `src/render/hud.js`.
-  - **Money-driven** (owner instruction 2026-10-12, supersedes the earlier "different mp3 after buying beer" wording): entering with coins plays the purchase mp3 (`assets/sounds/ulica-01_01-sklep.mp3`); entering with no coins plays `ulica-01-01-sklep2.mp3`, keeps the player inside only **1 second** and exits — nothing else. No UI.
-  - Done (owner 2026-10-12): the moment Rudy **comes out of the shop**, the `beer` appears in the inventory and the coin disappears — **same instant** (both HUD rows change together).
-  - Acceptance (verified 2026-10-12): visit with a coin → purchase jingle + beer/coin swap at the coming-out moment; the next visit broke → second jingle + exit after 1 second. Inventory holds `beer` afterwards.
-- [x] ✅ **P0.4 — Conditional boss (`boss_zul`, the bum) triggered by beer** *(done + verified in browser 2026-10-12)*
-  - Files: street JSON (section 02 `boss`), `src/world/section.js`, `src/actors/boss.js`, `src/game/play-state.js`.
-  - Boss conditions extend from flags to **items** (`hasItem: ["beer"]`): `conditions` gates the spawn (evaluated by `State.matchesConditions`), `trigger` gates the fight. Without beer: stands idle, no reaction (and cannot be struck). With beer: the `boss-intro` audio (by convention) + boss music + the fight starts. Defeat sets the world flag `<id>_defeated` so he stays down on later visits.
-  - Acceptance (verified 2026-10-12): both paths observable in-game (no beer → idle bum, punches whiff; with beer → fight starts and he attacks).
-- [x] ✅ **P0.5 — Victory message** *(done + verified in browser 2026-10-12)*
-  - On boss defeat: congratulatory message (brief text, shown once for 5 s).
-  - Acceptance (verified 2026-10-12): "Gratulacje! Pokonałeś żula!" appears once, exactly on the bum's defeat.
+- [x] ✅ **P0.3 — Automated invisible shop (beer)** *(done + verified in browser 2026-10-12; **reworked 2026-10-19 into the config-driven walkable interaction**)*
+  - Files: `src/game/walkable-interaction.js`, `src/game/play-state.js`, the street JSON (`interactions[].trigger`), `src/render/hud.js`.
+  - **Walkable interaction** (owner 2026-10-19): the shop is a spot of the section (`x1`…`x2`); ↑ walks Rudy in, he disappears for the trigger's `stay` and walks back out. The sound (`assets/sounds/<street>-<interaction>-<trigger>.mp3`) plays **when Rudy disappears in the spot**, not when the walk-in starts. The trigger is picked by the current mission stage; the **exchange** — the mission map, the item of `give` and the price of `cost` — happens **200 ms before he leaves**, so buying the beer swaps the money icon for the beer icon and the new objective appears in the same instant.
+  - Acceptance (verified 2026-10-19): ↑ in the spot → the sound of the stage's trigger when he disappears, the 3 s stay on stage 0 (and 1 s later), the mission moving from stage 0 to 1 and the coin turning into a beer 200 ms before the exit.
+- [x] ✅ **P0.4 — Conditional boss (`zul-mietek`, the bum) gated by the mission** *(done + verified in browser 2026-10-12; **reworked 2026-10-19 to the mission stages**)*
+  - Files: street JSON (the `boss` of the section), `src/world/section.js`, `src/actors/boss.js`, `src/game/play-state.js`.
+  - The boss's `"mission": [1, 2]` gates his existence (the mission decides what is in the world); before that he waits in the background as a section overlay (`"mission": [0]`). His `trigger` (`always` / `distance` / `hit`) starts the fight: then the `<street>-boss-intro` audio (by convention) + the boss music + the fight. Defeat sets the world flag `<street>_<id>_defeated` and **ends the street** (the next street follows).
+  - Acceptance (verified 2026-10-19): on stage 0 the boss is not in the section (only his waiting pose in the background); from stage 1 he appears and the fight starts with the music and the introduction sentence; his defeat ends the street.
+- [x] ✅ **P0.5 — Victory message** *(done + verified in browser 2026-10-12; **reworked 2026-10-19 to the street sequence**)*
+  - A finished street hands over to the next one; the **victory screen** comes after the **last** street of the game ("GRATULACJE! WYGRAŁEŚ GRĘ!" + "Ukończyłeś wszystkie ulice!").
+  - Acceptance (verified 2026-10-19): the boss's defeat ends the street, the next street loads (its own mission, the player at its beginning); after the last street the victory screen appears.
 - [x] ✅ **P0.6 — Game over screen** *(done + verified in browser 2026-10-12)*
-  - On Rudy's HP 0: game over screen with **statistics** (game time, defeated enemies, coins) + **death music** (`game-over.mp3`, optional by convention) + **restart button** (also Enter/Space) that starts a fresh game (`State.resetForNewGame` rebuilds everything). No save/load anywhere.
+  - On Rudy's HP 0: game over screen with **statistics** (game time, defeated enemies, coins) + **death music** (`game-over.mp3`, optional by convention) + **restart button** (click or Enter — Space does not restart, owner 2026-10-15) that starts a fresh game (`State.resetForNewGame` rebuilds everything and the game starts at the first street). No save/load anywhere.
   - Acceptance (verified 2026-10-12): defeat → screen with stats and music; the button restarts the game cleanly (Rudy at the start, 5 HP, 1 coin, empty inventory).
-- [x] ✅ **P0.7 — Config cleanup** *(done + verified in browser 2026-10-12)*
-  - Street JSON reflects the PoC (boss = the bum on the ground strip with `conditions` + `trigger`; shop sells beer; the unused `door` example is out); `level`/`experience` were already gone from `State.stats` (no XP/leveling) — confirmed absent.
-  - Acceptance (verified 2026-10-12): clean load with only PoC content active.
-- [x] ✅ **P0.8 — Minimal in-game info display (experiment)** *(HP + money HUD done 2026-10-12; item rows added + verified 2026-10-12)*
-  - Show minimal HP / objective feedback during play. **HP/money placement decided by the owner (2026-10-12)**: top-left corner — hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per coin). **Items get their own row below the coins** (owner: beer as a 3rd HUD row) — one `assets/hud/<itemId>.png` icon per unit; empty rows collapse. The rest stays experimental, owner evaluates during playtests.
+- [x] ✅ **P0.7 — Config cleanup** *(done + verified in browser 2026-10-12; **the new street schema landed 2026-10-19**)*
+  - The street JSON is now the whole street: `mission`, `sections[]` (with `trigger`, `highlight`, `interactions`, `enemies`, `boss`) — no `route`, no `exitLeft`/`exitRight`, no `boundaries`, no `conditions`, no `idleOverlay`. `level`/`experience` are gone from `State.stats` (no XP/leveling).
+  - Acceptance (verified 2026-10-19): `data/streets/01-narutowicza.json` alone drives the game; the old `ulica-01.json` is removed.
+- [x] ✅ **P0.8 — Minimal in-game info display (experiment)** *(HP + money HUD done 2026-10-12; item rows added + verified 2026-10-12; mission logs config-driven 2026-10-19)*
+  - Show minimal HP / objective feedback during play. **HP/money placement decided by the owner (2026-10-12)**: top-left corner — hearts (one `assets/hud/hp.png` per HP) and coins below (one `assets/hud/money.png` per coin). **Items get their own row below the coins** — one `assets/hud/<itemId>.png` icon per unit; empty rows collapse (no item is carried in the current street, so the rows stay empty). The mission logs (two rows top-right) come from the street config. The rest stays experimental, owner evaluates during playtests.
   - Acceptance (verified 2026-10-12): the owner can evaluate an info display during PoC playtests (hearts → coins → item rows observed in-game).
 
 ## ⚔️ Phase 1 — Full combat system
@@ -159,12 +159,13 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 
 - [ ] ⬜ **P2.1 — Quest config schema**
   - Main street mission (non-linear, cross-section) + one side quest per section; triggers at mission-specific interaction points; conditions on flags/items/quests; **effects** (spawn changes, shop opens, fight bypassed, item granted/taken).
+  - **Done (2026-10-19)**: the main street mission — its stages, the log lines and the transition maps — is config-driven (`mission`, `sections[].trigger.mission`, `interactions[].trigger[].mission`), and the mission gates what is in the world (the boss, the overlays). Still missing: the side quests, the conditions on flags/items/quests and the effects (items, money, stat boosts).
   - Acceptance: the beer → boss pattern is expressible purely in quest/effect config.
 - [ ] ⬜ **P2.2 — Mission items & stat boosts**
   - Mission inventory (e.g. documents to deliver); slight stat boost per completed mission.
   - Acceptance: a mission item can be taken, carried and delivered; completing a quest visibly raises a stat.
 - [ ] ⬜ **P2.3 — Section re-entry effects + objective text**
-  - Quest-driven spawns applied on re-entry ("came back and things are different"); brief objective text. Basic beer/boss mission logs and their fixed top-right placement are implemented and browser-verified (2026-10-19); the general quest-driven re-entry behavior remains planned.
+  - Quest-driven spawns applied on re-entry ("came back and things are different now"); brief objective text. **Done (2026-10-19)**: the mission decides what is in a section (the boss exists only on his stages, the overlays follow the stage) and the objective text is the config's mission log; the side-quest effects remain planned.
   - Acceptance: completing a side quest visibly changes its section after leaving and re-entering.
 
 ## 🚶 Phase 3 — NPCs & dialogue
@@ -179,10 +180,10 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 ## 👑 Phase 4 — Boss framework, audio layering, UI menu
 
 - [ ] ⬜ **P4.1 — Three boss types as config**
-  - Section / side-mission / street-mission bosses; copied config entity = new instance; `"boss": null` allowed; street-mission boss appears only after its section's street-mission tasks are done + conditions met.
+  - Section / side-mission / street-mission bosses; copied config entity = new instance; a section without a `boss` has none; the street-mission boss appears only on the mission stages of its section.
   - Acceptance: all three types demonstrable via config alone.
 - [ ] ⬜ **P4.2 — Generic intro cutscene**
-  - Special animation + sound immobilizing the player (`shop-entry.js` generalized into a scripted-sequence runner).
+  - Special animation + sound immobilizing the player (`walkable-interaction.js` generalized into a scripted-sequence runner).
   - Acceptance: player cannot act during the intro; the fight starts when it ends.
 - [ ] ⬜ **P4.3 — Audio layering + collapsible menu**
   - Ambient → section music → boss music (highest wins); menu with stats, completed missions, street-mission status, game timer; congratulatory message on completing the street.
@@ -191,15 +192,16 @@ Owner's scope: section 1 (`ulica-01/01`) holds **one enemy — `lysyblokers` —
 ## 🧰 Phase 5 — Expansion & polish
 
 - [ ] ⬜ **P5.2 — Content expansion**
-  - More sections and streets via `data/streets/<street>/` directories (target layout in AGENTS.md); background photo crop/scale for the flat bottom strip.
-  - Acceptance: a new section is addable as files only; a new street loads from its own directory.
+  - More sections and streets via new files in `data/streets/` (the game finds them by name and plays them one after another); background photo crop/scale for the flat bottom strip.
+  - Acceptance: a new section is addable as files only; a new street loads from its own file.
 - [ ] ⬜ **P5.3 — Random passersby & polish**
   - Passersby randomness; general polish.
   - Acceptance: passersby appear and react variably.
 
 ## 📎 Asset dependencies (owner-supplied; code picks by naming convention / config paths)
-- Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>_<section>-ambient` (loop; falls back to the default street ambience `ambience.mp3`, which plays automatically at boot — owner 2026-10-14/15), `boss-intro` (the boss's introduction sentence, played once on top of `boss-music`), `boss-music` (loop), `game-over` (played once on defeat, no loop), `<street>-congratulations` (victory jingle, played once — owner 2026-10-15). **Every audio file is optional — a missing file means silence.**
-- **PoC**: `player-jump.mp3`, `player-attack-hit.mp3`, `lysyblokers-attack-miss/-hit.mp3`, the "beer bought" (piwo) mp3, death music (`game-over.mp3`), `boss-intro.mp3`, boss music (`boss-music.mp3`). (`player-attack-miss.mp3` and `ulica-01_01-sklep.mp3` exist.)
-- **Later**: `ulica-01_01-ambient`-style street ambient loops, section music, catchphrase mp3s, dialogue mp3s.
-- **Sprites**: headbutt row for `lysyblokers`, `boss_zul` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row). Rudy's death row (`rudy_dres` row 2, all 8 frames) and the boss's (`boss_zul` row 2, first 4 frames) are in use — owner 2026-10-15.
-- Convention-based sounds are always optional (silence when absent); only sounds explicitly configured in a JSON file (e.g. the shop `sound` field) report errors like other assets.
+- Naming conventions (implemented in `src/audio/audio.js`): `player-attack-miss` / `player-attack-hit`, `<enemyName>-attack-miss` / `<enemyName>-attack-hit`, `<who>-jump` (e.g. `player-jump`), `<street>-<section>-ambient` (loop; falls back to the default street ambience `ambience.mp3`, which plays automatically at boot — owner 2026-10-14/15), `<street>-boss-intro` (the boss's introduction sentence, played once on top of `<street>-boss-music`), `<street>-boss-music` (loop), `<street>-<interaction>-<trigger>` (the sound of an interaction), `game-over` (played once on defeat, no loop), `<street>-congratulations` (victory jingle, played once — owner 2026-10-15). **Every audio file is optional — a missing file means silence.**
+- Pictures: `assets/bg/<street>-<section>.png` (the section background) and `assets/bg/<street>-<section>-<highlight>.png` (the overlays of a section).
+- **PoC**: `player-jump.mp3`, `player-attack-hit.mp3`, `lysy-blokers-attack-hit.mp3`, the shop sounds (`01-narutowicza-sklep-0/-1.mp3`), death music (`game-over.mp3`), `01-narutowicza-boss-intro.mp3`, boss music (`01-narutowicza-boss-music.mp3`). (`player-attack-miss.mp3` exists.)
+- **Later**: `<street>-<section>-ambient`-style street ambient loops, section music, catchphrase mp3s, dialogue mp3s.
+- **Sprites**: headbutt row for `lysy-blokers`, the `zul-mietek` sheet, Rudy's headbutt + kick rows (Phase 1). The PoC works with existing sheets (a move = the first 4 frames of a row). Rudy's death row (`rudy_dres` row 2, all 8 frames) and the boss's (`zul-mietek` row 2, first 4 frames) are in use — owner 2026-10-15.
+- Convention-based sounds are always optional (silence when absent); only the assets named explicitly in a JSON file (e.g. the section background) report errors like other assets.

@@ -1,6 +1,6 @@
 {
-    "name": "lysyblokers",
-    "sprite": "lysyblokers",
+    "name": "lysy-blokers",
+    "sprite": "lysy-blokers",
     "hp": 9,
     "walkSpeed": 100,
     "walkFrameMs": 80,

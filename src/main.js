@@ -1,5 +1,6 @@
 import Game from './game/game.js';
 import WorldManager from './world/world-manager.js';
+import { listStreets } from './world/street-registry.js';
 import Player from './actors/player.js';
 import { loadCharacterDef } from './actors/character-defs.js';
 import Keyboard from './input/keyboard.js';
@@ -14,8 +15,9 @@ ctx.font = '16px "Press Start 2P"';
 
 const game = new Game();
 
+// The streets of the game, in play order (data/streets/<number>-<name>.json).
 const world = new WorldManager(game.state);
-await world.loadStreet('data/streets/ulica-01.json');
+world.setStreets(await listStreets());
 
 const playerDef = await loadCharacterDef('player');
 
@@ -28,12 +30,12 @@ const keyboard = new Keyboard(undefined, gameKeys);
 
 /**
  * Builds a fresh game: clean State (stats and money seeded from the character
- * config), first route section, Rudy at the start line. This is both the boot
- * path and the restart from the game over screen — there are no saves.
+ * config), the first street of the game, Rudy at the start line. This is both
+ * the boot path and the restart from the game over screen — there are no saves.
  */
 async function startFreshGame() {
     game.state.resetForNewGame(playerDef);
-    await world.goToRouteIndex(0);
+    await world.gotoStreet(0);
 
     const player = new Player({ x: 50, y: 598, def: playerDef });
     await player.load();
@@ -42,7 +44,7 @@ async function startFreshGame() {
         ctx, world, player, keyboard, state: game.state,
         onGameEnd: result => game.changeState(new EndState({
             ctx, state: game.state, keyboard, result,
-            streetName: world.streetName,
+            streetName: world.streetId,
             drawScene: () => playState.draw(),
             onRestart: startFreshGame,
         })),

@@ -9,7 +9,7 @@
 const cache = new Map();
 
 /**
- * @param {string} type Character type key, e.g. "player", "lysyblokers".
+ * @param {string} type Character type key, e.g. "player", "lysy-blokers".
  * @returns {Promise<object|null>} The character config, or null if it does not exist.
  */
 export async function loadCharacterDef(type) {

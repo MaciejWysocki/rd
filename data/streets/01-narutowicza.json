@@ -8,15 +8,17 @@
     "sections": [
         {
             "name": "Zielona 3",
-            "highlight": [{ "x": 158, "y": 288, "position": [450, 460] }],        
+            "highlight": [{ "x": 158, "y": 288, "position": [400, 500] }],        
             "interactions": [
                 {
                     "id": "sklep", "type": "walkable",
-                    "x1": 450, "x2": 460,
+                    "x1": 400, "x2": 500,
                     "trigger": [{
                         "on": "enter",
                         "mission": { "0": 1 },
-                        "stay": 3000
+                        "stay": 3000,
+                        "give": "beer",
+                        "cost": 1
                     }, {
                         "on": "enter",
                         "stay": 1000

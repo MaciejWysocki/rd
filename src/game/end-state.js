@@ -50,6 +50,9 @@ export default class EndState {
     }
 
     onEnter() {
+        // A press of Enter made during the gameplay must not restart the game
+        // right away: the player has to press it on the end screen itself.
+        this.keyboard.consumePress('Enter');
         // End-screen music, played ONCE (no loop): the death music on defeat,
         // the victory jingle when the game is won.
         if (this.result === 'lost') playGameOverMusic();
@@ -98,7 +101,7 @@ export default class EndState {
 
         ctx.fillStyle = '#fff';
         ctx.font = '24px "Press Start 2P"';
-        ctx.fillText(won ? 'Pokonałeś żula!' : 'Rudy poległ na ulicy.', width / 2, py + 135);
+        ctx.fillText(won ? 'Ukończyłeś wszystkie ulice!' : 'Rudy poległ na ulicy.', width / 2, py + 135);
 
         ctx.fillStyle = '#bbb';
         ctx.font = '20px "Press Start 2P"';

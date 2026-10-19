@@ -5,15 +5,20 @@
  *
  * Gameplay state: draws the current section background, its enemies and the player,
  * and feeds input and section boundaries into the actors each frame.
- * Walking under a shop door highlights it; Up then starts a scripted entry (see shop-entry.js).
+ * Walking into a walkable spot highlights it; Up then starts the scripted
+ * sequence of the interaction (see walkable-interaction.js).
  *
  * Combat resolves in animation-finish order, with melee RPS arbitration in
- * combat.js. Boss triggers and defeats lead to the shared end screen; Rudy's
- * defeat waits for his fall before the game freezes.
+ * combat.js. The boss trigger starts the fight (and its music); the boss's
+ * defeat ends the street — the next street of the game follows, and the last
+ * street of the game ends it. Rudy's defeat waits for his fall before the
+ * game freezes.
  */
 
-import ShopEntry, { isPlayerUnderDoor } from './shop-entry.js';
-import { startAmbient, startBossMusic, playBossIntro, stopAllAudio } from '../audio/audio.js';
+import WalkableInteraction, { selectTrigger, isPlayerAt } from './walkable-interaction.js';
+import {
+    startAmbient, startBossMusic, playBossIntro, stopAllAudio, playSound,
+} from '../audio/audio.js';
 import { drawHud } from '../render/hud.js';
 import Blood from '../render/blood.js';
 import { resolveStrike, isStrikeInRange } from '../actors/combat.js';
@@ -22,6 +27,8 @@ import { resolveStrike, isStrikeInRange } from '../actors/combat.js';
 const ENTRY_X_FROM_LEFT = 50;
 // Where Rudy appears when entering a section from the right: frame flush with the 1600px canvas edge (1600 - 150).
 const ENTRY_X_FROM_RIGHT = 1450;
+// The line the characters stand on.
+const GROUND_Y = 598;
 
 export default class PlayState {
     /**
@@ -30,9 +37,9 @@ export default class PlayState {
      * @param {WorldManager} deps.world
      * @param {Player} deps.player
      * @param {Keyboard} deps.keyboard
-     * @param {State} deps.state Global persistent state (HP, money, items shown in the HUD).
+     * @param {State} deps.state Global persistent state (HP, money, items, mission shown in the HUD).
      * @param {Function} deps.onGameEnd Called once with 'lost' (Rudy's HP hit 0)
-     *                                  or 'won' (the boss defeated).
+     *                                  or 'won' (the last street finished).
      */
     constructor({ ctx, world, player, keyboard, state, onGameEnd }) {
         this.ctx = ctx;
@@ -42,9 +49,10 @@ export default class PlayState {
         this.state = state;
         this.onGameEnd = onGameEnd;
         this.transitioning = false;
-        this.shop = new ShopEntry(state);
+        this.interaction = new WalkableInteraction();
         this.endSent = false; // the shared end screen is requested exactly once
         this.bossDefeatHandled = false; // the boss's death is recorded exactly once
+        this.streetFinished = false; // the current street is done — the next one follows
         this.blood = new Blood();
         this._countedKills = new WeakSet();
         this._overlayImages = new Map();
@@ -57,12 +65,12 @@ export default class PlayState {
 
     /**
      * (Re)starts the looping ambience for the current section:
-     * `<street>_<section>-ambient`, or the default street ambience (`ambience.mp3`)
+     * `<street>-<section>-ambient`, or the default street ambience (`ambience.mp3`)
      * when the section has no track of its own.
      */
     _syncAmbient() {
         const section = this.world.currentSection;
-        if (section) startAmbient(this.world.streetName, section.id);
+        if (section) startAmbient(this.world.streetId, section.number);
     }
 
     update(dt) {
@@ -73,18 +81,21 @@ export default class PlayState {
         const section = this.world.currentSection;
         const solids = section ? section.boundaries : [];
 
-        if (this.shop.active) {
-            // Evasion presses during the script cannot fire after leaving the shop.
+        if (this.interaction.active) {
+            // Evasion presses during the script cannot fire after leaving the spot.
             this.keyboard.consumePress(this.player.jumpKey);
             this.keyboard.consumePress(this.player.retreatKey);
-            this.shop.update(dt);
+            this.interaction.update(dt);
         } else {
-            const door = this._shopDoor(section);
-            const underDoor = door && !this.player.attacking && !this.player.jumping
-                && !this.player.retreating && isPlayerUnderDoor(door, this.player);
-            // Up enters the shop at a door; elsewhere the same key jumps immediately.
-            if (underDoor && this.keyboard.consumePress(this.player.jumpKey)) {
-                this.shop.start(door, this.player);
+            const spot = this._interactionAt(section);
+            const atSpot = spot && !this.player.attacking && !this.player.jumping
+                && !this.player.retreating;
+            const trigger = atSpot ? selectTrigger(spot.trigger, this.state.mission.stage) : null;
+            // Up enters the interaction; elsewhere the same key jumps immediately.
+            if (trigger && this.keyboard.consumePress(this.player.jumpKey)) {
+                // The sound belongs to the moment Rudy is inside the spot.
+                const sound = `${this.world.streetId}-${spot.id}-${trigger.index}`;
+                this.interaction.start(spot, trigger, this.player, this.state, () => playSound(sound));
                 this.keyboard.consumePress(this.player.retreatKey);
             } else {
                 this.player.update(dt, this.keyboard, solids);
@@ -102,6 +113,7 @@ export default class PlayState {
         this._checkBossTrigger(section);
         this._resolveCombat(section);
         section?.boss?.updateVomit(dt, this.player);
+        this._checkStreetComplete(section);
 
         const stats = this.state.stats[this.player.name];
         if (stats) stats.hp = this.player.hp;
@@ -112,18 +124,17 @@ export default class PlayState {
     }
 
     /**
-     * The fight starts when the boss's trigger conditions are met (P0.4):
-     * e.g. carrying `beer` wakes the bum — intro audio, boss music, fight.
+     * The fight starts when the boss's trigger is met (P0.4): the trigger comes
+     * from the street config — 'always', 'distance' or 'hit'.
      */
     _checkBossTrigger(section) {
         const boss = section?.boss;
         if (!boss || boss.fightStarted || boss.defeated) return;
-        if (!this.state.matchesConditions(boss.trigger)) return;
+        if (!boss.shouldStartFight(this.player)) return;
         boss.engage();
-        if (boss.id === 'boss_zul') this.state.missionLogs[1] = 'Pokonaj żula';
-        startBossMusic();
+        startBossMusic(this.world.streetId);
         // The boss's introduction sentence plays on top of the fight music.
-        playBossIntro();
+        playBossIntro(this.world.streetId);
     }
 
     /** Resolves ready attacks chronologically, not in player/enemy update order. */
@@ -145,17 +156,47 @@ export default class PlayState {
         for (const enemy of section.enemies) this._countKill(enemy);
         if (section.boss) this._countKill(section.boss);
 
-        // The bum's defeat: the world flag that keeps him down on later visits,
-        // then the shared end screen with the victory result (P0.5) — but only
-        // after his fall has played out (row 2 of his sheet), like Rudy's
-        // (owner 2026-10-15).
+        // The bum's defeat: the world flag that keeps him down on later visits.
         const boss = section.boss;
-        if (boss?.defeated) {
-            if (!this.bossDefeatHandled) {
-                this.bossDefeatHandled = true;
-                this.state.setFlag(`${boss.id}_defeated`, true);
-            }
-            if (boss.isDeathAnimationDone()) this._end('won');
+        if (boss?.defeated && !this.bossDefeatHandled) {
+            this.bossDefeatHandled = true;
+            this.state.setFlag(`${this.world.streetId}_${boss.id}_defeated`, true);
+        }
+    }
+
+    /**
+     * The street is over when its last section is cleared: the boss is down
+     * (and his fall has played out) or the mission is finished without a boss.
+     * The next street of the game follows; after the last one the game ends.
+     */
+    _checkStreetComplete(section) {
+        if (this.streetFinished) return;
+        if (!this.world.isStreetComplete()) return;
+
+        const boss = section?.boss;
+        if (boss?.defeated && !boss.isDeathAnimationDone()) return; // wait for the fall
+
+        this.streetFinished = true;
+        if (this.world.hasNextStreet) {
+            this._advanceStreet();
+        } else {
+            this._end('won');
+        }
+    }
+
+    /** Loads the next street of the game and puts Rudy at its beginning. */
+    async _advanceStreet() {
+        this.transitioning = true;
+        try {
+            await this.world.nextStreet();
+            this.player.x = ENTRY_X_FROM_LEFT;
+            this.player.y = GROUND_Y;
+            this.blood.clear(); // transient, like the enemies: wiped with the section
+            this.bossDefeatHandled = false;
+            this.streetFinished = false;
+            this._syncAmbient();
+        } finally {
+            this.transitioning = false;
         }
     }
 
@@ -184,7 +225,7 @@ export default class PlayState {
         const stats = this.state.stats[this.player.name];
         if (stats) stats.kills = (stats.kills ?? 0) + 1;
         // The corpse persists in the game state: still lying here on later visits.
-        this.state.markEnemyDefeated(enemy.id, enemy);
+        this.state.markEnemyDefeated(this.world.streetId, enemy.id, enemy);
     }
 
     /** The hostile currently in fight mode (HUD shows its HP), or null. */
@@ -215,19 +256,18 @@ export default class PlayState {
         return best;
     }
 
-    /** Returns 'right' or 'left' when Rudy's hitbox leaves the section through an open edge, otherwise null. */
+    /** Returns 'right' or 'left' when Rudy's hitbox leaves the section, otherwise null. */
     _exitDirection(section) {
         if (!section) return null;
         const { x, hitbox } = this.player;
         const left = x + hitbox.x;
         const right = left + hitbox.w;
-        const { routeIndex, route } = this.world;
-        if (section.config.exitRight && routeIndex + 1 < route.length && right >= this.ctx.canvas.width) return 'right';
-        if (section.config.exitLeft && routeIndex > 0 && left <= 0) return 'left';
+        if (this.world.hasNextSection && right >= this.ctx.canvas.width) return 'right';
+        if (this.world.hasPreviousSection && left <= 0) return 'left';
         return null;
     }
 
-    /** Moves along the route by step (+1 or -1) and places Rudy at entryX. */
+    /** Moves to the neighbouring section (step +1 or -1) and places Rudy at entryX. */
     async _changeSection(step, entryX) {
         this.transitioning = true;
         try {
@@ -241,8 +281,13 @@ export default class PlayState {
         }
     }
 
-    _shopDoor(section) {
-        return section?.interactions.find(i => i.type === 'shop') ?? null;
+    /** The walkable spot the player stands in, or null. */
+    _interactionAt(section) {
+        if (!section) return null;
+        for (const spot of section.interactions) {
+            if (isPlayerAt(spot, this.player)) return spot;
+        }
+        return null;
     }
 
     draw() {
@@ -254,22 +299,10 @@ export default class PlayState {
             ctx.drawImage(section.background, 0, 0, ctx.canvas.width, ctx.canvas.height);
         }
 
-        const boss = section?.boss ?? null;
-        // A boss still waiting for its trigger shows its configured static pose
-        // ("idleOverlay") in the background instead of the sprite's first frame;
-        // the sprite takes over the moment the fight starts.
-        const bossIdlePose = boss && !boss.fightStarted && !boss.defeated ? boss.idleOverlay : null;
-        if (bossIdlePose) this._drawOverlay(bossIdlePose);
-
-        const door = this._shopDoor(section);
-        // Highlight while Rudy stands at the door and through the whole shop
-        // sequence (enter, inside, exit).
-        if (door && (this.shop.active || isPlayerUnderDoor(door, this.player))) {
-            this._drawOverlay(door.highlight);
-        }
+        this._drawHighlights(section);
 
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
-        if (boss && !bossIdlePose) boss.draw(ctx);
+        section?.boss?.draw(ctx);
         this.player.draw(ctx);
         this.blood.draw(ctx); // spray and stains, over the characters
 
@@ -285,6 +318,26 @@ export default class PlayState {
         });
     }
 
+    /** Draws the background overlays of the section (shop signs, waiting poses). */
+    _drawHighlights(section) {
+        for (const highlight of section?.highlights ?? []) {
+            if (this._highlightVisible(highlight)) this._drawOverlay(highlight);
+        }
+    }
+
+    /**
+     * An overlay is shown when the player stands in its "position" range
+     * and/or the mission is on one of its "mission" stages.
+     */
+    _highlightVisible(highlight) {
+        if (highlight.mission && !highlight.mission.includes(this.state.mission.stage)) return false;
+        if (highlight.position) {
+            const [x1, x2] = highlight.position;
+            if (this.player.x < x1 || this.player.x > x2) return false;
+        }
+        return true;
+    }
+
     /**
      * Hands the game to the shared end screen (end-state.js) exactly once.
      * The game is over: the street goes silent — the death music (`game-over`,
@@ -297,7 +350,7 @@ export default class PlayState {
         this.onGameEnd(result);
     }
 
-    /** Draws a static overlay from a `{ image, x, y }` config (shop highlight, idle boss pose) at its fixed position. */
+    /** Draws a static overlay from a `{ image, x, y }` config at its fixed position. */
     _drawOverlay(overlay) {
         if (!overlay) return;
         let img = this._overlayImages.get(overlay.image);

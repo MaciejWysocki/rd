@@ -2,13 +2,18 @@
 //
 // boss.js
 //
-// A section boss — the PoC bum `boss_zul` (PLAN.md P0.4). Unlike a patrol
+// A section boss — the PoC bum `zul-mietek` (PLAN.md P0.4). Unlike a patrol
 // enemy it stands still and does not react at all until its fight trigger is
-// met (e.g. carrying `beer`, checked against the global State). Then the
-// caller plays the intro audio, starts the boss music and calls engage():
-// from that moment the boss fights like any enemy (combat.js) but never gives
-// up the chase. Before the fight it cannot be struck — punches just whiff.
-// On defeat it lies on the ground like every other character (Actor.draw).
+// met (the trigger comes from the street config: 'always', 'distance' or
+// 'hit'). Then the caller plays the intro audio, starts the boss music and
+// calls engage(): from that moment the boss fights like any enemy (combat.js)
+// but never gives up the chase. Before the fight it cannot be struck — punches
+// just whiff. On defeat it lies on the ground like every other character
+// (Actor.draw).
+//
+// Whether the boss exists at all is decided by the street config: the "mission"
+// field of the boss lists the mission stages he shows up on. The pose he waits
+// in is a background overlay of the section (see section.js).
 //
 // One combined attack (owner 2026-10-15): the boss plays its attack animation
 // and at the END of it the green vomit flies out toward the player — there is
@@ -29,18 +34,13 @@ export default class Boss extends Enemy {
      * @param {number} options.x       Frame top-left X in world px.
      * @param {number} options.y       Frame top-left Y in world px.
      * @param {object} options.def     Character config (data/characters/<type>.json).
-     * @param {string} options.id      Street-entity id (e.g. "boss_zul"); its
-     *                                  defeat sets the world flag `<id>_defeated`.
-     * @param {object|null} options.trigger Conditions object for the fight start,
-     *                                  e.g. { hasItem: ["beer"] } (State.matchesConditions).
-     * @param {object|null} options.idleOverlay Static pose shown instead of the
-     *                                  sprite's first frame while the boss waits
-     *                                  for its trigger ({ image, x, y }).
+     * @param {string} options.id      Street-entity id (e.g. "zul-mietek"); its
+     *                                  defeat sets the world flag `<street>_<id>_defeated`.
+     * @param {string} options.trigger Fight trigger: 'always', 'distance' or 'hit'.
+     * @param {number} options.distance Distance of the 'distance' trigger, in world px.
      */
-    constructor({ x, y, def, id, trigger = null, idleOverlay = null }) {
-        super({ x, y, def, id });
-        this.trigger = trigger;
-        this.idleOverlay = idleOverlay;
+    constructor({ x, y, def, id, trigger = 'always', distance = null }) {
+        super({ x, y, def, id, trigger, distance });
         this.fightStarted = false;
         this.vomit = new Vomit();
         this.attackReachPx = VOMIT_HIT_PX; // the combined attack reaches as far as the vomit
@@ -90,6 +90,6 @@ export default class Boss extends Enemy {
 
     /** Once the fight is on, the boss always closes in on the player. */
     _isEngaged(target) {
-        return this.fightStarted && Boolean(target) && target.canBeHit();
+        return this.fightStarted && super._isEngaged(target);
     }
 }
