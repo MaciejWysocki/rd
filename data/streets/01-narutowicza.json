@@ -1,0 +1,50 @@
+{
+    "name": "Narutowicza",
+    "mission": [
+        "Kup piwo",
+        "Znajdź ustronne miejsce aby wypić piwo",
+        "Pokonaj żula"
+    ],
+    "sections": [
+        {
+            "name": "Zielona 3",
+            "highlight": { "x": 158, "y": 288, "position": "sklep" },        
+            "interactions": [
+                {
+                    "id": "sklep", "type": "walkable",
+                    "x1": 450, "x2": 460,
+                    "trigger": {
+                        "on": "enter",
+                        "sounds": [[0], [1, 2]],
+                        "mission": { "0": 1 }
+                    }
+                }
+            ],
+            "enemies": [
+                {
+                    "id": "lysy-blokers",
+                    "type": "lysy-blokers",
+                    "trigger": "distance",
+                    "distance": 300,
+                    "x": 1450,
+                    "y": 598
+                }
+            ]
+        },
+        {
+            "name": "Narutowicza 6",
+            "trigger": {
+                "on": "enter",
+                "mission": { "1": 2 }
+            },
+            "highlight": { "x": 1427, "y": 573, "mission": [0] },
+            "boss": {
+                "id": "zul-mietek",
+                "type": "zul-mietek",
+                "mission": [1, 2],                    
+                "trigger": "always",
+                "x": 1450, "y": 598
+            }
+        }
+    ]
+}
