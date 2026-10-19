@@ -129,7 +129,7 @@ export default class Section {
 
     async _spawnEnemies(state) {
         const enemies = [];
-        for (const config of this.config.enemies ?? []) {
+        for (const [slot, config] of (this.config.enemies ?? []).entries()) {
             // Types without a character config file are not implemented yet and are skipped.
             const def = await loadCharacterDef(config.type);
             if (!def) continue;
@@ -140,11 +140,13 @@ export default class Section {
                 id: config.id,
                 trigger: config.trigger,
                 distance: config.distance,
+                slot,
             });
             await enemy.load();
             // A kill is persisted in the global State: on re-entry the corpse is
             // still lying where it fell instead of a fresh enemy appearing.
-            const corpse = state.getDefeatedEnemy(this.streetId, config.id);
+            // The slot tells two enemies with the same id apart.
+            const corpse = state.getDefeatedEnemy(this.streetId, config.id, slot);
             if (corpse) enemy.spawnDefeated(corpse);
             enemies.push(enemy);
         }
@@ -175,6 +177,9 @@ export default class Section {
             distance: config.distance,
         });
         await boss.load();
+        // A kill is persisted in the global State: the body stays where it fell.
+        const corpse = state.getDefeatedEnemy(this.streetId, config.id, null);
+        if (corpse) boss.spawnDefeated(corpse);
         return boss;
     }
 

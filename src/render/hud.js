@@ -5,7 +5,8 @@
 // coin is 5 PLN). Carried items follow below the coins: each item type gets
 // its own row of `assets/hud/<itemId>.png` icons, one per unit (e.g. a bought
 // beer = one `beer.png`). Top-right: two reserved mission-log rows above the
-// HP of the enemy currently in fight mode. All counters live in the global State /
+// HP of the hostiles in fight mode — one row of hearts each, stacked one below
+// the other. All counters live in the global State /
 // the actors; nothing is stored here. A row with zero items draws nothing and
 // collapses entirely (e.g. no coins left = the money row is gone and the rows
 // below move up).
@@ -53,14 +54,15 @@ function drawRow(ctx, name, count, y, align = 'left') {
 
 /**
  * Draws the HUD: one heart per HP, one coin per money unit below them, then
- * one row per carried item type (sorted by item id). While an enemy is in
- * fight mode its HP shows below the two reserved mission-log rows at top-right.
+ * one row per carried item type (sorted by item id). The hostiles in fight
+ * mode show their HP below the two reserved mission-log rows at top-right —
+ * one row each, stacked one under the other.
  * @param {CanvasRenderingContext2D} ctx
- * @param {{hp:number, money:number, items?:object, enemyHp?:{hp:number}|null, missionLogs?:string[]}} counters
+ * @param {{hp:number, money:number, items?:object, enemies?:Array<{hp:number,maxHp:number}>, missionLogs?:string[]}} counters
  *        Values from the global State; `items` is the inventory ({ itemId: { item, qty } }),
- *        `enemyHp` the HP of the enemy currently fighting (null = no hearts).
+ *        `enemies` the hostiles currently in fight mode (empty = no hearts).
  */
-export function drawHud(ctx, { hp, money, items = {}, enemyHp = null, missionLogs = [] }) {
+export function drawHud(ctx, { hp, money, items = {}, enemies = [], missionLogs = [] }) {
     ctx.save();
     ctx.font = '20px "Press Start 2P"';
     ctx.textAlign = 'right';
@@ -73,9 +75,13 @@ export function drawHud(ctx, { hp, money, items = {}, enemyHp = null, missionLog
     }
     ctx.restore();
 
-    if (enemyHp && enemyHp.hp > 0) {
-        drawRow(ctx, 'hp', enemyHp.hp, Y + MISSION_ROWS * MISSION_ROW_HEIGHT + GAP, 'right');
+    // One row of hearts per hostile in fight mode, one below the other.
+    let enemyY = Y + MISSION_ROWS * MISSION_ROW_HEIGHT + GAP;
+    for (const enemy of enemies) {
+        if (!enemy || enemy.hp <= 0) continue;
+        enemyY = drawRow(ctx, 'hp', enemy.hp, enemyY, 'right');
     }
+
     let y = Y;
     y = drawRow(ctx, 'hp', hp, y);
     y = drawRow(ctx, 'money', money, y);

@@ -33,6 +33,14 @@
                     "distance": 300,
                     "x": 1450,
                     "y": 598
+                },
+                {
+                    "id": "lysy-blokers",
+                    "type": "lysy-blokers",
+                    "trigger": "distance",
+                    "distance": 300,
+                    "x": 1050,
+                    "y": 598
                 }
             ]
         },

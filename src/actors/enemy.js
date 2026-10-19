@@ -38,13 +38,16 @@ export default class Enemy extends Actor {
      * @param {number} options.x   Spawn X (frame top-left) in world px. Right end of the patrol.
      * @param {number} options.y   Frame top-left Y in world px.
      * @param {object} options.def Character config (data/characters/<type>.json).
-     * @param {string} options.id  Street-entity id (persisted when defeated).
+     * @param {string} options.id  Street-entity id (the label of the entity).
      * @param {string} options.trigger Fight trigger: 'always', 'distance' or 'hit'.
      * @param {number} options.distance Distance of the 'distance' trigger, in world px.
+     * @param {number|null} options.slot The entity's place in the section's list — it tells
+     *        two entities with the same id apart (each keeps its own corpse).
      */
-    constructor({ x, y, def, id = null, trigger = 'distance', distance = null }) {
+    constructor({ x, y, def, id = null, trigger = 'distance', distance = null, slot = null }) {
         super({ x, y, def, id });
         this.spawnX = x;
+        this.slot = slot;
         this.direction = DIR_LEFT;
         // How close the player must be for this enemy to start a blow
         // (the boss overrides it with its vomit range).

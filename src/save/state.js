@@ -11,6 +11,11 @@
 
 import Mission from '../world/mission.js';
 
+/** The identity of a street entity: its label plus its place in the section. */
+function corpseKey(streetId, id, slot) {
+    return slot == null ? `${streetId}/${id}` : `${streetId}/${id}#${slot}`;
+}
+
 export default class State {
     constructor() {
         this.mission = new Mission(); // the mission of the current street
@@ -34,15 +39,22 @@ export default class State {
         return this.mission.displayLogs;
     }
 
-    /** Records a kill so the corpse is still lying there on later visits. */
-    markEnemyDefeated(streetId, id, { x, y, facing }) {
+    /**
+     * Records a kill so the corpse is still lying there on later visits.
+     * @param {string} streetId The street the entity belongs to.
+     * @param {string} id The entity's label.
+     * @param {number|null} slot The entity's place in the section (null for a boss) —
+     *        it tells two entities with the same id apart, so each keeps its own body.
+     * @param {{x:number,y:number,facing:number}} position Where the body lies.
+     */
+    markEnemyDefeated(streetId, id, slot, { x, y, facing }) {
         if (id == null) return;
-        this.defeatedEnemies.set(`${streetId}/${id}`, { x, y, facing });
+        this.defeatedEnemies.set(corpseKey(streetId, id, slot), { x, y, facing });
     }
 
     /** @returns {{x:number,y:number,facing:number}|null} Where the corpse lies. */
-    getDefeatedEnemy(streetId, id) {
-        return this.defeatedEnemies.get(`${streetId}/${id}`) ?? null;
+    getDefeatedEnemy(streetId, id, slot) {
+        return this.defeatedEnemies.get(corpseKey(streetId, id, slot)) ?? null;
     }
 
     /**

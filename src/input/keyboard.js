@@ -4,10 +4,12 @@
  * keyboard.js
  *
  * Tracks held keys and one-shot presses by their physical code (e.g. "ArrowLeft").
- * extraGameKeys registers character-config keys (moves, jump and retreat) so
+ * extraGameKeys registers character-config keys (the moves and the jump) so
  * the browser default action is prevented for them too.
  */
 
+// ArrowDown is not bound to any action any more (the retreat was removed on
+// 2026-10-19) — it is still swallowed here so the page does not scroll.
 const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
 
 export default class Keyboard {

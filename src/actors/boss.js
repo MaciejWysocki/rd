@@ -38,9 +38,10 @@ export default class Boss extends Enemy {
      *                                  defeat sets the world flag `<street>_<id>_defeated`.
      * @param {string} options.trigger Fight trigger: 'always', 'distance' or 'hit'.
      * @param {number} options.distance Distance of the 'distance' trigger, in world px.
+     * @param {number|null} options.slot The entity's place in the section (null for a boss).
      */
-    constructor({ x, y, def, id, trigger = 'always', distance = null }) {
-        super({ x, y, def, id, trigger, distance });
+    constructor({ x, y, def, id, trigger = 'always', distance = null, slot = null }) {
+        super({ x, y, def, id, trigger, distance, slot });
         this.fightStarted = false;
         this.vomit = new Vomit();
         this.attackReachPx = VOMIT_HIT_PX; // the combined attack reaches as far as the vomit

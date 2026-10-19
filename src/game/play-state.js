@@ -82,21 +82,18 @@ export default class PlayState {
         const solids = section ? section.boundaries : [];
 
         if (this.interaction.active) {
-            // Evasion presses during the script cannot fire after leaving the spot.
+            // The jump press during the script cannot fire after leaving the spot.
             this.keyboard.consumePress(this.player.jumpKey);
-            this.keyboard.consumePress(this.player.retreatKey);
             this.interaction.update(dt);
         } else {
             const spot = this._interactionAt(section);
-            const atSpot = spot && !this.player.attacking && !this.player.jumping
-                && !this.player.retreating;
+            const atSpot = spot && !this.player.attacking && !this.player.jumping;
             const trigger = atSpot ? selectTrigger(spot.trigger, this.state.mission.stage) : null;
             // Up enters the interaction; elsewhere the same key jumps immediately.
             if (trigger && this.keyboard.consumePress(this.player.jumpKey)) {
                 // The sound belongs to the moment Rudy is inside the spot.
                 const sound = `${this.world.streetId}-${spot.id}-${trigger.index}`;
                 this.interaction.start(spot, trigger, this.player, this.state, () => playSound(sound));
-                this.keyboard.consumePress(this.player.retreatKey);
             } else {
                 this.player.update(dt, this.keyboard, solids);
 
@@ -225,18 +222,19 @@ export default class PlayState {
         const stats = this.state.stats[this.player.name];
         if (stats) stats.kills = (stats.kills ?? 0) + 1;
         // The corpse persists in the game state: still lying here on later visits.
-        this.state.markEnemyDefeated(this.world.streetId, enemy.id, enemy);
+        this.state.markEnemyDefeated(this.world.streetId, enemy.id, enemy.slot, enemy);
     }
 
-    /** The hostile currently in fight mode (HUD shows its HP), or null. */
-    _fightingFoe(section) {
-        if (!section) return null;
+    /** The hostiles currently in fight mode (the HUD shows their HP), in order. */
+    _fightingFoes(section) {
+        if (!section) return [];
+        const foes = [];
         for (const enemy of section.enemies) {
-            if (!enemy.defeated && enemy.isFighting(this.player)) return enemy;
+            if (!enemy.defeated && enemy.isFighting(this.player)) foes.push(enemy);
         }
         const boss = section.boss;
-        if (boss && boss.isFighting()) return boss;
-        return null;
+        if (boss && boss.isFighting()) foes.push(boss);
+        return foes;
     }
 
     /** Nearest opponent the player's blow can reach right now, or null (whiff). */
@@ -307,13 +305,14 @@ export default class PlayState {
         this.blood.draw(ctx); // spray and stains, over the characters
 
         // HUD stays on top: hearts, coins and carried items at the left;
-        // two mission-log rows above the fighting enemy's hearts at the right.
-        const foe = this._fightingFoe(section);
+        // two mission-log rows above the fighting enemies' hearts at the right
+        // (one row per foe).
+        const foes = this._fightingFoes(section);
         drawHud(ctx, {
             hp: this.state.stats[this.player.name]?.hp ?? 0,
             money: this.state.money,
             items: this.state.inventory,
-            enemyHp: foe ? { hp: foe.hp, maxHp: foe.maxHp } : null,
+            enemies: foes.map(foe => ({ hp: foe.hp, maxHp: foe.maxHp })),
             missionLogs: this.state.missionLogs,
         });
     }

@@ -30,7 +30,7 @@ Companion docs: [AGENTS.md](AGENTS.md) (context & conventions — read first), [
 | 👑 4 | Boss framework, audio layering, UI menu | 0/3 | ⬜ |
 | 🧰 5 | Expansion & polish | 0/2 | ⬜ |
 
-Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and browser-verified (2026-10-18)**: finish-time RPS arbitration, immediate jump/retreat evasion and collision-aware 30 px knockback. P1.4 blood/corpses is also complete. **The street/mission configuration was migrated to the new schema and browser-verified (2026-10-19)**: the streets are played one after another by name, the mission (its stages and log lines) comes from the street config alone, the sections form a chain, the interactions are walkable spots and the enemies/bosses take their fight trigger from the config. Next up: **P1.3 — Move sets & per-character speeds**, including mission-based unlocks.
+Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and browser-verified (2026-10-18)**: finish-time RPS arbitration, immediate jump evasion and collision-aware 30 px knockback (the retreat was removed on 2026-10-19 — ↓ does nothing). P1.4 blood/corpses is also complete. **The street/mission configuration was migrated to the new schema and browser-verified (2026-10-19)**: the streets are played one after another by name, the mission (its stages and log lines) comes from the street config alone, the sections form a chain, the interactions are walkable spots and the enemies/bosses take their fight trigger from the config. Next up: **P1.3 — Move sets & per-character speeds**, including mission-based unlocks.
 
 ## 🔒 Locked design decisions (owner; includes answers from 2026-10-11)
 
@@ -46,10 +46,10 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 - Sections can be revisited; mission progress can change a previously visited section (e.g. spawn a different character type).
 
 ### Combat
-- **First to strike lands the hit.** The defender can evade by **retreat or jump**.
-- The hit is resolved **at the finish of the attack animation (full stretch of the punch/headbutt/kick)**: if you see the attack and retreat/jump **before the animation finishes**, you are **not hit**. Retreat and jump are **not buffered**.
+- **First to strike lands the hit.** The defender can evade by **jumping** (the retreat was removed on 2026-10-19 — ↓ does nothing).
+- The hit is resolved **at the finish of the attack animation (full stretch of the punch/headbutt/kick)**: if you see the attack and jump **before the animation finishes**, you are **not hit**. The jump is **not buffered**.
 - If both attack animations finish within a **~100 ms tie buffer**, resolve Rock-Paper-Scissors: **headbutt beats punch, punch beats kick, kick beats headbutt**.
-- Range attacks like vomit never tie, they always hit unless retreated/jumped away.
+- Range attacks like vomit never tie, they always hit unless jumped away.
 - **Movement and attack speeds differ per character** (parameters — players and enemies alike).
 - Move sets are configured per character by **key mapping + sprite row number** (`{ key, row, type: punch|kick|headbutt|vomit }`) — never hardcoded. Often just one move (the bald thug `lysy-blokers` only headbutts); Rudy starts with a punch and gains headbutt + kick later, via missions.
 - PoC simplification: **trading single blows**, HP counts down from a few points to zero.
@@ -97,7 +97,7 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 ## ✅ Former "Open decisions" — answered (owner, 2026-10-11)
 
 1. **Player defeat** → game over screen with statistics, death music in the background, and a restart button. **No saves, no saving capability.** (⚠ supersedes the earlier "save in browser + reset" expectation — see flag above.)
-2. **Combat timing** → tie buffer very low, **~100 ms**, counted from the **end of the attack animation (full stretch)**. Player and enemies have **different movement and attack speeds**. Jump and retreat are **not buffered**; the hitbox is checked at the finish of the attack animation — dodge before the finish and you are not hit.
+2. **Combat timing** → tie buffer very low, **~100 ms**, counted from the **end of the attack animation (full stretch)**. Player and enemies have **different movement and attack speeds**. The jump is **not buffered** (the retreat was removed on 2026-10-19); the hitbox is checked at the finish of the attack animation — dodge before the finish and you are not hit.
 3. **Shop** → fully automated and invisible; the entrance is part of the background; entering plays an mp3 and buying beer (piwo) plays a different mp3.
 4. **Objectives / HP / info display** → subject of testing; the best solution is yet to be discovered (treated as an experiment in P0.8).
 
@@ -140,10 +140,10 @@ Owner's scope: section 1 (`01-narutowicza`, "Zielona 3") holds **one enemy — `
   - 100 ms inclusive tie window counted from full extension; already-started opposing melee attacks use headbutt > punch > kick > headbutt. Finish times are compared without adding a delay; a later winner still lands only at its own extension and must pass the hit check then.
   - Ready attacks resolve chronologically, not player-first. Equal move types favor the earlier finish; exactly equal finishes draw without damage. Vomit is configured as `type: vomit` and never participates in RPS; launched bursts still require contact and can be jumped over or escaped.
   - Acceptance (verified 2026-10-18): all six RPS matchups; lysyblokers' headbutt beats Rudy's punch on a tie; 99/100 ms ties and the 101 ms first-strike boundary; earlier enemy attacks win regardless of update order; same-type ties and ranged hits checked.
-- [x] ✅ **P1.2 — Timed evasion (retreat + jump)** *(done + verified in browser 2026-10-18)*
-  - Jump immediately cancels Rudy's windup and dodges melee as well as vomit. **↓ (ArrowDown)** starts a backward step without turning: `retreatKey`, `retreatDurationMs: 180`, `retreatDistancePx: 90` in the player config. Retreat uses distance, not invulnerability; walls can block it. Holding ↓ does not repeat it.
-  - Evasion presses during another dodge or the shop sequence are discarded, not buffered. Holding ↑ still repeats hops; shop entry retains priority at the door. Queued punches, alternating hands and zero player recovery remain intact.
-  - Acceptance (verified 2026-10-18): before-finish jump/retreat avoids contact; after-contact dodges do not undo damage; blocked retreat still takes a hit; non-buffered retreat and real keyboard controls checked in-game.
+- [x] ✅ **P1.2 — Timed evasion (jump)** *(done + verified in browser 2026-10-18; **the retreat half was removed 2026-10-19**)*
+  - The jump immediately cancels Rudy's windup and dodges melee as well as vomit. **↓ (ArrowDown) does nothing any more** — the backward step (the "moonwalk") and its `retreatKey`/`retreatDurationMs`/`retreatDistancePx` config fields are gone (owner 2026-10-19); the jump is the only evasion.
+  - Evasion presses during the interaction sequence are discarded, not buffered. Holding ↑ still repeats hops; the interaction entry retains priority at the spot. Queued punches, alternating hands and zero player recovery remain intact.
+  - Acceptance (verified 2026-10-18, re-checked 2026-10-19): a before-finish jump avoids contact; an after-contact dodge does not undo damage; the jump and the punch still work and ↓ does nothing.
 - [ ] ⬜ **P1.3 — Move sets & per-character speeds**
   - Multiple moves per character with mission-based unlocks (Rudy gains headbutt, then kick); per-move animation rows and hit feedback; distinct movement/attack speeds per character.
   - Acceptance: two characters with different move sets and speeds fight correctly against each other.

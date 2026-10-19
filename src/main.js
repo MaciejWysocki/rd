@@ -24,7 +24,6 @@ const playerDef = await loadCharacterDef('player');
 const gameKeys = [
     ...playerDef.moves.map(m => m.key).filter(Boolean),
     playerDef.jumpKey,
-    playerDef.retreatKey,
 ].filter(Boolean);
 const keyboard = new Keyboard(undefined, gameKeys);
 
