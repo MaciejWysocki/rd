@@ -13,6 +13,21 @@
 
 import Mission from './mission.js';
 
+// How many random hues a game draws — the copies of the hostiles take them
+// one by one (world/entity-hues.js). Far more than a section needs.
+const HUE_POOL_SIZE = 48;
+
+/**
+ * Draws the random hues of a game: the angles on the color wheel that the
+ * copies of the hostiles are colored with.
+ * @returns {number[]} The angles in degrees.
+ */
+function drawHuePool() {
+    const pool = [];
+    for (let i = 0; i < HUE_POOL_SIZE; i++) pool.push(Math.random() * 360);
+    return pool;
+}
+
 /**
  * The identity of a defeated entity: its label plus its place in the section.
  * @param {string} streetId The street the entity belongs to.
@@ -33,10 +48,11 @@ export default class Session {
         this._flags = {};                   // { flagName: boolean }
         this._stats = {};                   // { characterName: { hp, maxHp, kills } }
         this._playTimeMs = 0;               // session game timer (the game over screen)
-        // The seed of the look of the world: the hue shifts of the hostiles
-        // are derived from it (world/entity-hues.js), so they stay the same
-        // during a playthrough and differ from one playthrough to the next.
-        this._hueSeed = Math.random();
+        // The random hues of the world: the copies of the hostiles are colored
+        // with them (world/entity-hues.js). They are drawn anew for every
+        // game and stay for the whole playthrough — the street looks
+        // different in every game, but a hostile keeps its colors within one.
+        this._huePool = drawHuePool();
         // Defeated hostiles persist as corpses across section visits:
         // "<street>/<id>" -> { x, y, facing } (session-only, like everything else).
         this._defeatedEntities = new Map();
@@ -91,9 +107,9 @@ export default class Session {
         return this._playTimeMs;
     }
 
-    /** The seed of the hue shifts of the hostiles (a new one per playthrough). */
-    get hueSeed() {
-        return this._hueSeed;
+    /** The random hues of the hostiles: a new set for every game. */
+    get huePool() {
+        return this._huePool;
     }
 
     /** @param {number} value The new value of the game timer. */
@@ -269,7 +285,7 @@ export default class Session {
             },
         };
         this._playTimeMs = 0;
-        this._hueSeed = Math.random();
+        this._huePool = drawHuePool(); // a new look for every game
         this._defeatedEntities = new Map();
     }
 }

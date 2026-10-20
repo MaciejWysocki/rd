@@ -20,7 +20,7 @@
  * @param {number} degrees The angle in degrees.
  * @returns {number}
  */
-export function normalizeHue(degrees) {
+function normalizeHue(degrees) {
     if (!Number.isFinite(degrees)) return 0;
     const value = degrees % 360;
     return value < 0 ? value + 360 : value;

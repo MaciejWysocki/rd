@@ -128,9 +128,10 @@ export default class Section {
      * the session: on re-entry the corpse is still lying where it fell instead
      * of a fresh enemy appearing.
      *
-     * Two hostiles of the same type get different colors: every hostile but
-     * the first of a type gets its own hue shift (entity-hues.js), so the
-     * player can tell them apart — in the street and in the HUD.
+     * Two hostiles of the same type get different colors: the first one of a
+     * type keeps the original colors, every further copy of it gets one of
+     * the random hues of the game (entity-hues.js), so the player can tell
+     * them apart — in the street and in the HUD.
      */
     async _spawnEnemies(session, context) {
         const entities = [
@@ -148,7 +149,7 @@ export default class Section {
             spawnable.push({ entity, character });
         }
 
-        const hues = planEntityHues(spawnable.map(({ entity }) => entity), session.hueSeed);
+        const hues = planEntityHues(spawnable.map(({ entity }) => entity), session.huePool);
 
         const enemies = [];
         for (let i = 0; i < spawnable.length; i++) {
