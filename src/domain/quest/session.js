@@ -33,6 +33,10 @@ export default class Session {
         this._flags = {};                   // { flagName: boolean }
         this._stats = {};                   // { characterName: { hp, maxHp, kills } }
         this._playTimeMs = 0;               // session game timer (the game over screen)
+        // The seed of the look of the world: the hue shifts of the hostiles
+        // are derived from it (world/entity-hues.js), so they stay the same
+        // during a playthrough and differ from one playthrough to the next.
+        this._hueSeed = Math.random();
         // Defeated hostiles persist as corpses across section visits:
         // "<street>/<id>" -> { x, y, facing } (session-only, like everything else).
         this._defeatedEntities = new Map();
@@ -85,6 +89,11 @@ export default class Session {
     /** The session game timer in ms (shown on the game over screen). */
     get playTimeMs() {
         return this._playTimeMs;
+    }
+
+    /** The seed of the hue shifts of the hostiles (a new one per playthrough). */
+    get hueSeed() {
+        return this._hueSeed;
     }
 
     /** @param {number} value The new value of the game timer. */
@@ -260,6 +269,7 @@ export default class Session {
             },
         };
         this._playTimeMs = 0;
+        this._hueSeed = Math.random();
         this._defeatedEntities = new Map();
     }
 }

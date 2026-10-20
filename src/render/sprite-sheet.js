@@ -5,19 +5,28 @@
  *
  * Loads a sprite-sheet with fixed square frames arranged in rows.
  * Each row is one animation; rowFrames[row] is the number of frames in that row.
+ *
+ * A sheet may be loaded with a hue shift: the pixels are rotated once, when
+ * the sheet is loaded, so two hostiles of the same type can look different
+ * (see world/entity-hues.js and render/hue.js). Drawing the shifted copy
+ * costs exactly as much as drawing the original.
  */
+
+import { rotateHue } from './hue.js';
 
 export default class SpriteSheet {
     /**
      * @param {string} src        Path to the PNG, e.g. "assets/sprites/rudy_dres.png".
      * @param {number} frameSize  Width and height of one frame in px.
      * @param {number[]} rowFrames Frame count per row, e.g. [8, 4].
+     * @param {number} hue        The hue shift of the sheet in degrees (0 = the original colors).
      */
-    constructor(src, frameSize, rowFrames) {
+    constructor(src, frameSize, rowFrames, hue = 0) {
         this.src = src;
         this.frameSize = frameSize;
         this.rowFrames = rowFrames;
-        this.image = null;
+        this.hue = hue;
+        this.image = null; // the drawn source: the PNG or its hue-shifted copy
     }
 
     load() {
@@ -32,7 +41,7 @@ export default class SpriteSheet {
                     ));
                     return;
                 }
-                this.image = img;
+                this.image = this.hue ? rotateHue(img, this.hue) : img;
                 resolve(this);
             };
             img.onerror = () => reject(new Error(`Nie można wczytać sprite-sheetu: ${this.src}`));

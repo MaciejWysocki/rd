@@ -52,8 +52,10 @@ The game was restructured into explicit layers. **The gameplay behaviour did not
 | `src/domain/combat/arena.js` | The chronological arbitration (pure): it returns the events (`hit` / `miss` / `draw` / `ranged`). |
 | `src/world/world.js` | The streets and the sections: navigation, the street list, the **street completion rule**. |
 | `src/world/section.js` | The runtime of one section: background, walls, the hostiles, the walkable spots; the enter pipeline. |
-| `src/render/sprite-sheet.js` | Fixed square frames in rows; one row = one animation. |
-| `src/render/hud.js` | HUD overlay: hearts, coins, item rows, the two mission-log rows, one row of hearts per hostile in fight mode. |
+| `src/world/entity-hues.js` | The hue plan of the hostiles of a section: the first hostile of a type keeps the original colors, every further one gets its own hue shift. |
+| `src/render/sprite-sheet.js` | Fixed square frames in rows; one row = one animation. It can bake a hue shift into the sheet. |
+| `src/render/hue.js` | The hue shift of a drawn image: the pixels are rotated once, when the image is loaded (the sprites and the HUD icons). |
+| `src/render/hud.js` | HUD overlay: hearts, coins, item rows, the two mission-log rows, one row of hearts per hostile in fight mode (the row of a hostile carries its hue shift). |
 | `src/render/blood.js` | Procedural blood: every landed blow sprays 3x3 px red squares that arc down and land on the struck character's feet line. |
 | `src/render/vomit.js` | The ranged burst of a `ranged` character (the boss's green vomit). |
 | `src/audio/audio.js` | Convention-based sound playback. It only **plays** the track names that `asset-conventions.js` builds; every file is optional. |
@@ -84,6 +86,7 @@ The game was restructured into explicit layers. **The gameplay behaviour did not
 - **Delta time is milliseconds** throughout.
 - **Persistent vs transient**: the mission/flags/inventory/money/stats live in the `Session` and survive section changes (the mission is replaced when the next street starts); the hostiles live in the `Section` and are rebuilt from JSON on every `enter()` — except **kills**, which are persisted in the session (`defeatedEntities`, `<street>/<id>#<slot>` → where the body lies) and reappear as corpses on re-entry. The **slot** is the entity's place in its own list (`enemies` / `bosses`): two entities that share an id (e.g. two `lysy-blokers`) keep their own body.
 - **One trigger model everywhere** (sections, interactions and, later, the entities): a list of `{ "when": <condition>, "stay": <ms>, "effects": [...] }`. The **first** trigger whose condition holds wins; a trigger without a condition is the fallback and belongs last.
+- **Duplicates look different**: two hostiles of the same type in the same section share one sprite sheet, so the first hostile of a type keeps the original colors and every further one of that type gets its own **hue shift** (`src/world/entity-hues.js`: the golden angle, 137.5° apart, plus a small random spread from the seed of the session). The shift is baked into the sheet's pixels when it is loaded (`src/render/hue.js`) and the **HUD tints the hostile's heart row with the same shift**, so the row belongs to the hostile of that color. The shifts come from the seed of the session (`session.hueSeed`): they stay the same during a playthrough (a corpse keeps the colors of the enemy that fell) and differ from one playthrough to the next.
 - Errors and code comments are English; user-facing strings and error `throw`s are Polish.
 
 ## Street JSON schema (v2) — `data/streets/<number>-<name>.json`
@@ -268,7 +271,7 @@ Desktop keyboard; the move and `jumpKey` mappings live in the character config. 
 - **Debug**: holding **Shift** (either one) moves Rudy **4× faster** while walking — including the mid-jump drift (`DEBUG_SPEED_MULTIPLIER` in `src/domain/actors/player.js`).
 - ↓: **does nothing** — the backward step (the "retreat"/moonwalk) was removed by the owner on 2026-10-19; the jump is the only evasion. The key is still swallowed so the page does not scroll.
 
-## Current status (2026-10-19)
+## Current status (2026-10-20)
 
 **The game was restructured into explicit layers (the DDD refactor) and the street/mission configuration was migrated to the new schema (v2).** The old `src/game/`, `src/actors/`, `src/save/` and the old `State` are gone: the code lives in `src/app/`, `src/domain/`, `src/world/`, `src/render/`, `src/audio/` and `src/input/`, and the state that survives a screen change is the `Session`. **The gameplay behaviour did not change** — the same mechanics, the same timings, the same sounds, the same assets.
 
@@ -279,6 +282,7 @@ Working (verified in the browser before and after the refactor):
 - **The sections**: a chain, no route — the player walks into the neighbouring section and back; the ends of the street are walled by convention (the first section a left wall, the last one a right wall). Section backgrounds: `assets/bg/01-narutowicza-<n>.png`.
 - **The hostiles**: the fight trigger comes from the config — `always`, `distance` (the `lysy-blokers` waits until the player is closer than 300 px) or `hit` (peaceful until punched). The boss `zul-mietek` is a **sentry** (`behavior: "sentry"`) and exists only while his `presentWhen` holds (`{ "mission": [1, 2] }`); before that he waits in the background as the `01-narutowicza-2-1.png` pose (a section overlay with `when: { "mission": [0] }`); with the fight on, `<street>-boss-music` loops and `<street>-boss-intro` plays once on top of it.
 - **The street ends** when the mission is on its last stage and no boss is standing; the next street follows, and after the last one the victory screen appears.
+- **The duplicates look different** (2026-10-20): the two `lysy-blokers` of the first section are no longer the same sprite — the first keeps the original colors, the second is hue-shifted (~137.5° + a small random spread per playthrough). The **HP row of a hostile in the HUD carries the same shift**, so the row of hearts belongs to the hostile of that color. Verified in the browser: the second thug's pixels are exactly the rotated pixels of the first one, and its heart row is exactly the rotated heart icon.
 - Everything from before still works: the universal combat (P1.1/P1.2/P1.5, knockback **100 px**), the blood VFX and the corpses, the jump, the HUD, the two-row mission log, the pixel font, the shared end screen (`game-over` on defeat, `<street>-congratulations` on victory, played once) and the restart (click or Enter — Space never restarts). **The retreat (↓) was removed on 2026-10-19** — the jump is the only evasion now.
 
 Not implemented yet: the **side quests** (the conditions and the effects are expressible in JSON now, but the side quests themselves are not written), the **dialogue** (and the NPC townsfolk), the **audio layering** (ambient → section music → boss music), the **mission stat boosts** (no XP/leveling), the **boss intro cutscene**, the mission-based move unlocks (P1.3), the other enemy types (`rat`, `thug` — skipped until they get character configs) and the collapsible menu. Placeholder art/audio (`zul-mietek.png`, `hud/beer.png`, `*-attack-hit`, `*-boss-intro`, `*-boss-music`, `game-over`) are duplicates awaiting owner assets. Details and tracking in [FEATURES.md](FEATURES.md). Next up: **P1.3 — Move sets & per-character speeds** in [PLAN.md](PLAN.md).

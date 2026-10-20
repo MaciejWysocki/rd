@@ -61,12 +61,15 @@ export default class Enemy extends Actor {
      *        two entities with the same id apart (each keeps its own corpse).
      * @param {object|null} options.projectile
      *        For a ranged character: { spawn(origin, dirX), update(dt, target), draw(ctx) }.
+     * @param {number} options.hue
+     *        The hue shift of this enemy in degrees — it tells two enemies of the same
+     *        type apart (the sheet bakes it in, the HUD tints the HP row with it).
      */
     constructor({
         x, y, character, sheet, id = null, role = 'enemy',
-        trigger = { type: 'distance', distance: null }, slot = null, projectile = null,
+        trigger = { type: 'distance', distance: null }, slot = null, projectile = null, hue = 0,
     }) {
-        super({ x, y, character, sheet, id });
+        super({ x, y, character, sheet, id, hue });
         this.role = role;
         this.slot = slot;
         this.spawnX = x;

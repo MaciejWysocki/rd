@@ -46,13 +46,17 @@ export default class Actor {
      * @param {object} options.character Normalized Character model.
      * @param {object} options.sheet      Sprite sheet: { drawFrame(ctx, row, frame, x, y, facing) }.
      * @param {string|null} options.id    Street-entity id (the label of the entity).
+     * @param {number} options.hue        The hue shift of the actor in degrees (0 = the
+     *                                    original colors). The sheet bakes it into the
+     *                                    pixels; the HUD tints the actor's HP row with it.
      */
-    constructor({ x = 0, y = 0, character, sheet, id = null }) {
+    constructor({ x = 0, y = 0, character, sheet, id = null, hue = 0 }) {
         if (!character) throw new Error('Actor wymaga modelu postaci (character)');
         if (!sheet) throw new Error('Actor wymaga arkusza sprite\'ow (sheet)');
         this.character = character;
         this.sheet = sheet;
         this.id = id;
+        this.hue = hue;
         this.name = character.name;
         this.x = x;
         this.y = y;

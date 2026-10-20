@@ -26,6 +26,7 @@
 import Enemy from '../domain/actors/enemy.js';
 import SpriteSheet from '../render/sprite-sheet.js';
 import Vomit from '../render/vomit.js';
+import { planEntityHues } from './entity-hues.js';
 import { FRAME_SIZE, spritePath, backgroundPath } from '../domain/content/asset-conventions.js';
 import { applyEffects, matchesCondition } from '../domain/quest/triggers.js';
 
@@ -126,23 +127,39 @@ export default class Section {
      * holds — the mission decides what is in the world. A kill is persisted in
      * the session: on re-entry the corpse is still lying where it fell instead
      * of a fresh enemy appearing.
+     *
+     * Two hostiles of the same type get different colors: every hostile but
+     * the first of a type gets its own hue shift (entity-hues.js), so the
+     * player can tell them apart — in the street and in the HUD.
      */
     async _spawnEnemies(session, context) {
-        const enemies = [];
         const entities = [
             ...this.model.enemies.map(entity => ({ ...entity, role: 'enemy' })),
             ...this.model.bosses.map(entity => ({ ...entity, role: 'boss' })),
         ];
 
+        // The hostiles that are really in the world: the ones whose condition
+        // holds and whose type is implemented.
+        const spawnable = [];
         for (const entity of entities) {
             if (!matchesCondition(entity.presentWhen, context)) continue;
             const character = await this.content.getCharacter(entity.type);
             if (!character) continue; // not implemented yet
+            spawnable.push({ entity, character });
+        }
+
+        const hues = planEntityHues(spawnable.map(({ entity }) => entity), session.hueSeed);
+
+        const enemies = [];
+        for (let i = 0; i < spawnable.length; i++) {
+            const { entity, character } = spawnable[i];
+            const hue = hues[i];
 
             const sheet = new SpriteSheet(
                 spritePath(character.sprite),
                 FRAME_SIZE,
                 character.framesPerRow,
+                hue,
             );
             const enemy = new Enemy({
                 x: entity.x,
@@ -154,6 +171,7 @@ export default class Section {
                 trigger: entity.fight,
                 slot: entity.slot,
                 projectile: character.attackKind === 'ranged' ? new Vomit() : null,
+                hue,
             });
             await enemy.load();
 

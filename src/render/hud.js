@@ -6,7 +6,9 @@
 // its own row of `assets/hud/<itemId>.png` icons, one per unit (e.g. a bought
 // beer = one `beer.png`). Top-right: two reserved mission-log rows above the
 // HP of the hostiles in fight mode — one row of hearts each, stacked one below
-// the other. All counters live in the global State /
+// the other. The hearts of a hostile carry its hue shift, so the row belongs
+// to the hostile of that color (the same shift the sprite sheet got).
+// All counters live in the global State /
 // the actors; nothing is stored here. A row with zero items draws nothing and
 // collapses entirely (e.g. no coins left = the money row is gone and the rows
 // below move up).
@@ -15,6 +17,7 @@
 // computed from the images, so it does not depend on asset dimensions.
 
 import { hudIconPath } from '../domain/content/asset-conventions.js';
+import { rotateHue } from './hue.js';
 
 const X = 16;
 const Y = 16;
@@ -22,35 +25,57 @@ const GAP = 8;
 const MISSION_ROWS = 2;
 const MISSION_ROW_HEIGHT = 32;
 
-const images = new Map();
+const icons = new Map();
 
-function getImage(name) {
-    let img = images.get(name);
-    if (!img) {
-        img = new Image();
+/** The icon of a HUD item: the image and its hue-shifted copies. */
+function getIcon(name) {
+    let entry = icons.get(name);
+    if (!entry) {
+        const img = new Image();
         img.src = hudIconPath(name);
-        images.set(name, img);
+        entry = { img, tinted: new Map() };
+        icons.set(name, entry);
     }
-    return img;
+    return entry;
+}
+
+/**
+ * The icon in the given hue: the original image or its hue-shifted copy.
+ * The copy is made once and kept — the hearts are drawn every frame.
+ */
+function getIconSource(entry, hue) {
+    if (!hue) return entry.img;
+    let shifted = entry.tinted.get(hue);
+    if (!shifted) {
+        shifted = rotateHue(entry.img, hue);
+        entry.tinted.set(hue, shifted);
+    }
+    return shifted;
 }
 
 /**
  * Draws up to `count` copies of the icon in a row starting at (X, y).
  * @param {'left'|'right'} [align] `right` draws the row anchored to the canvas
  *        right edge (the enemy HP corner).
+ * @param {number} [hue] The hue shift of the row in degrees (0 = the original colors).
  * @returns {number} Y of the next row (the row collapses when nothing is drawn).
  */
-function drawRow(ctx, name, count, y, align = 'left') {
-    const img = getImage(name);
-    if (count <= 0 || !img.complete || img.naturalWidth === 0) return y;
-    const step = img.naturalWidth + GAP;
+function drawRow(ctx, name, count, y, align = 'left', hue = 0) {
+    if (count <= 0) return y;
+    const entry = getIcon(name);
+    if (!entry.img.complete || entry.img.naturalWidth === 0) return y;
+    const img = getIconSource(entry, hue);
+    const width = img.naturalWidth ?? img.width;
+    const height = img.naturalHeight ?? img.height;
+    if (!width || !height) return y;
+    const step = width + GAP;
     for (let i = 0; i < count; i++) {
         const x = align === 'right'
-            ? ctx.canvas.width - X - img.naturalWidth - i * step
+            ? ctx.canvas.width - X - width - i * step
             : X + i * step;
         ctx.drawImage(img, x, y);
     }
-    return y + img.naturalHeight + GAP;
+    return y + height + GAP;
 }
 
 /**
@@ -59,9 +84,10 @@ function drawRow(ctx, name, count, y, align = 'left') {
  * mode show their HP below the two reserved mission-log rows at top-right —
  * one row each, stacked one under the other.
  * @param {CanvasRenderingContext2D} ctx
- * @param {{hp:number, money:number, items?:object, enemies?:Array<{hp:number,maxHp:number}>, missionLogs?:string[]}} counters
+ * @param {{hp:number, money:number, items?:object, enemies?:Array<{hp:number,maxHp:number,hue?:number}>, missionLogs?:string[]}} counters
  *        Values from the global State; `items` is the inventory ({ itemId: { item, qty } }),
- *        `enemies` the hostiles currently in fight mode (empty = no hearts).
+ *        `enemies` the hostiles currently in fight mode (empty = no hearts), each with
+ *        the hue shift of its sprite — the hearts of a row are shifted with it.
  */
 export function drawHud(ctx, { hp, money, items = {}, enemies = [], missionLogs = [] }) {
     ctx.save();
@@ -77,10 +103,12 @@ export function drawHud(ctx, { hp, money, items = {}, enemies = [], missionLogs 
     ctx.restore();
 
     // One row of hearts per hostile in fight mode, one below the other.
+    // The row carries the hue of its hostile, so the row belongs to the
+    // hostile of that color on the street.
     let enemyY = Y + MISSION_ROWS * MISSION_ROW_HEIGHT + GAP;
     for (const enemy of enemies) {
         if (!enemy || enemy.hp <= 0) continue;
-        enemyY = drawRow(ctx, 'hp', enemy.hp, enemyY, 'right');
+        enemyY = drawRow(ctx, 'hp', enemy.hp, enemyY, 'right', enemy.hue ?? 0);
     }
 
     let y = Y;

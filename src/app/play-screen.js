@@ -317,7 +317,7 @@ export default class PlayScreen {
             hp: this.session.stats[this.player.name]?.hp ?? 0,
             money: this.session.money,
             items: this.session.inventory,
-            enemies: foes.map(foe => ({ hp: foe.hp, maxHp: foe.maxHp })),
+            enemies: foes.map(foe => ({ hp: foe.hp, maxHp: foe.maxHp, hue: foe.hue })),
             missionLogs: this.session.logRows,
         });
     }
