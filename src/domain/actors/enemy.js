@@ -112,6 +112,19 @@ export default class Enemy extends Actor {
         this.fightStarted = true;
     }
 
+    /**
+     * Puts the enemy back where it stood when the player left the section:
+     * the position, the facing and the direction of the patrol. Its post
+     * (spawnX) stays the same — the enemy walks back to it.
+     * @param {{x:number,y:number,facing:number,direction:number}} state Where it stood.
+     */
+    restoreState({ x, y, facing, direction }) {
+        this.x = x;
+        this.y = y;
+        if (facing) this.facing = facing;
+        if (direction) this.direction = direction;
+    }
+
     /** A hit ends the peace: the enemy fights back from now on. */
     takeDamage(amount = 1, direction = 0, solids = []) {
         this.hitEngaged = true;

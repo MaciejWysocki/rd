@@ -58,7 +58,8 @@ Overall: 🔄 — **Phase 0 (PoC) complete. P1.1, P1.2 and P1.5 implemented and 
 - **HP is a character parameter; HP 0 = defeat.**
 - **Player defeat → game over screen**: statistics + **death music** in the background + **restart button** (restarts a fresh game).
 - **No saves, no saving capability** — game state is session-only. ⚠ *This supersedes the earlier expectation "mission status saved in the browser + reset option"; if persistence is wanted again later, the owner must say so.*
-- Blood is a visual effect only; defeated characters **lie on the ground and persist across section visits** — the kill is recorded in the **session** (`defeatedEntities`, session-only) and the corpse reappears where it fell (owner 2026-10-13).
+- Blood is a visual effect only; defeated characters **lie on the ground and persist across section visits** — the kill is recorded in the **session** (`hostileStates`, session-only) and the corpse reappears where it fell (owner 2026-10-13).
+- **The hostiles keep their place across section visits** (owner 2026-10-20): the state of every hostile is persisted in the session — the **living** ones stand where the player left them (position, facing, patrol direction; not back at their post), the dead ones lie where they fell. The state is keyed by the hostile's identity (`<street>/<section>/<role>/<id>#<slot>`). The **HP is not persisted** — a wounded hostile comes back at full HP.
 - **No XP, no leveling.** Progression and items are tied to missions; **each mission gives a slight stat boost** (`level`/`experience` in the session stats are dead weight — removed, P0.7).
 
 ### Items & economy

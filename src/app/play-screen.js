@@ -169,7 +169,7 @@ export default class PlayScreen {
                 playAttackSound(event.attacker.name);
             }
         }
-        for (const enemy of section.enemies) this._countKill(enemy);
+        for (const enemy of section.enemies) this._countKill(enemy, section);
     }
 
     /** The ranged bursts in flight: they hurt the player and stain the ground. */
@@ -231,12 +231,21 @@ export default class PlayScreen {
         }
     }
 
-    _countKill(enemy) {
-        if (!enemy.defeated || this._countedKills.has(enemy)) return;
+    _countKill(enemy, section) {
+        // A corpse that was already lying here (the session remembers it) is
+        // not a new kill — it was counted when it fell.
+        if (!enemy.defeated || enemy.spawnedDefeated || this._countedKills.has(enemy)) return;
         this._countedKills.add(enemy);
         this.session.recordKill(this.player.name);
         // The corpse persists in the session: still lying here on later visits.
-        this.session.markDefeated(this.world.streetId, enemy.id, enemy.slot, enemy);
+        this.session.markDefeated(
+            this.world.streetId,
+            section.number,
+            enemy.role,
+            enemy.id,
+            enemy.slot,
+            enemy,
+        );
     }
 
     /** The hostiles currently in fight mode (the HUD shows their HP), in order. */

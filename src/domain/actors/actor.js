@@ -89,6 +89,10 @@ export default class Actor {
         this.hp = character.hp ?? 1;
         this.maxHp = character.maxHp ?? this.hp;
         this.defeated = false;
+        // True when the actor was already lying on the ground when the section
+        // was entered (a corpse restored from the session) — nobody killed him
+        // just now, so the kill is not counted again.
+        this.spawnedDefeated = false;
         this.attackResolved = false;
         this.attackCooldownMs = 0;
         this.recoveryMs = character.recoveryMs ?? ATTACK_COOLDOWN_MS;
@@ -244,6 +248,7 @@ export default class Actor {
         this.facing = facing;
         this.hp = 0;
         this.defeated = true;
+        this.spawnedDefeated = true;
         this.deathElapsed = this.deathFrames * DEATH_FRAME_MS;
         if (this.deathRow !== null) {
             this.row = this.deathRow;

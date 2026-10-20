@@ -130,13 +130,14 @@ export default class World {
         if (!this.street) return false;
         if (this.session.mission.stage < this.session.mission.lastStage) return false;
         return !this.street.sections.some(section =>
-            section.bosses.some(boss => this._bossBlocks(boss)));
+            section.bosses.some(boss => this._bossBlocks(section, boss)));
     }
 
     /** True when the boss is present in the world and has not been defeated yet. */
-    _bossBlocks(boss) {
+    _bossBlocks(section, boss) {
         if (boss.presentWhen && !matchesCondition(boss.presentWhen, this.context())) return false;
-        return !this.session.isDefeated(this.street.id, boss.id, boss.slot);
+        const state = this.session.getHostile(this.street.id, section.number, 'boss', boss.id, boss.slot);
+        return !state?.defeated;
     }
 
     /**
@@ -156,7 +157,7 @@ export default class World {
     /** Leaves the active section, if any. */
     async leaveCurrent() {
         if (this.currentSection) {
-            this.currentSection.leave();
+            this.currentSection.leave(this.session);
             this.currentSection = null;
         }
     }

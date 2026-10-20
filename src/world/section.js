@@ -8,7 +8,7 @@
 //
 // Transient data is rebuilt from the street model on enter() and wiped on
 // leave(). Persistent changes (the mission, the inventory, the world flags,
-// the corpses of the defeated) live in the session and are never touched here.
+// the state of the hostiles) live in the session and are never touched here.
 //
 // The enter pipeline: background -> boundaries -> section triggers -> entities
 // -> interactions. The triggers run first, so the entities that are present
@@ -79,10 +79,21 @@ export default class Section {
     }
 
     /**
-     * Resets section memory: the enemies and the walkable spots.
-     * Does not touch the session.
+     * Resets section memory: the enemies and the walkable spots. The state of
+     * the hostiles goes to the session — where they stood stays where they
+     * stood, so the next visit finds them there.
+     * @param {Session} session The session the hostiles' state is kept in.
      */
-    leave() {
+    leave(session) {
+        for (const enemy of this.enemies) {
+            if (enemy.defeated) continue; // the corpse was recorded where it fell
+            session.saveHostile(this.street.id, this.number, enemy.role, enemy.id, enemy.slot, {
+                x: enemy.x,
+                y: enemy.y,
+                facing: enemy.facing,
+                direction: enemy.direction,
+            });
+        }
         this.enemies = [];
         this.interactions = [];
         this.active = false;
@@ -124,9 +135,10 @@ export default class Section {
      * Spawns the hostiles of the section: the enemies and the bosses. A type
      * without a character config is not implemented yet and is skipped. An
      * entity with a "presentWhen" condition exists only while the condition
-     * holds — the mission decides what is in the world. A kill is persisted in
-     * the session: on re-entry the corpse is still lying where it fell instead
-     * of a fresh enemy appearing.
+     * holds — the mission decides what is in the world. The state of a hostile
+     * is persisted in the session: on re-entry a dead one is still lying where
+     * it fell instead of a fresh enemy appearing, and a living one still
+     * stands where the player left it instead of jumping back to its post.
      *
      * Two hostiles of the same type get different colors: the first one of a
      * type keeps the original colors, every further copy of it gets one of
@@ -176,8 +188,15 @@ export default class Section {
             });
             await enemy.load();
 
-            const corpse = session.getDefeated(this.street.id, entity.id, entity.slot);
-            if (corpse) enemy.spawnDefeated(corpse);
+            const state = session.getHostile(
+                this.street.id,
+                this.number,
+                entity.role,
+                entity.id,
+                entity.slot,
+            );
+            if (state?.defeated) enemy.spawnDefeated(state); // the body lies where it fell
+            else if (state) enemy.restoreState(state); // it stands where the player left it
 
             enemies.push(enemy);
         }
