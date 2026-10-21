@@ -15,8 +15,8 @@
 //   sections — the sections of the street
 //     name        — the place shown in the section
 //     onEnter     — the triggers fired when the player enters the section
-//     overlays    — background overlays ({x, y, when})
-//     interactions— the walkable spots ({id, type, x1, x2, triggers})
+//     overlays    — background overlays ({x, y, when, position})
+//     interactions— the walkable spots ({id, type, x1, x2, when, triggers})
 //     enemies     — the enemies of the section
 //     bosses      — the bosses of the section
 //
@@ -33,8 +33,11 @@ const INTERACTION_TYPES = ['walkable'];
 // read as an empty section.
 const STREET_KEYS = ['name', 'mission', 'sections'];
 const SECTION_KEYS = ['name', 'onEnter', 'overlays', 'interactions', 'enemies', 'bosses'];
-const OVERLAY_KEYS = ['x', 'y', 'when'];
-const INTERACTION_KEYS = ['id', 'type', 'x1', 'x2', 'triggers'];
+const OVERLAY_KEYS = ['x', 'y', 'when', 'position'];
+const INTERACTION_KEYS = ['id', 'type', 'x1', 'x2', 'when', 'triggers'];
+// Where an overlay is drawn: "back" with the background, "front" over the
+// characters (e.g. a street light in the foreground).
+const OVERLAY_POSITIONS = ['back', 'front'];
 const TRIGGER_KEYS = ['when', 'stay', 'effects'];
 const ENTITY_KEYS = ['id', 'type', 'x', 'y', 'fight', 'presentWhen'];
 const FIGHT_KEYS = ['type', 'distance'];
@@ -114,7 +117,7 @@ function normalizeSection(raw, streetId, source, index) {
     return { number, name, onEnter, overlays, interactions, enemies, bosses };
 }
 
-/** The background overlays of a section: [{x, y, when}]. */
+/** The background overlays of a section: [{x, y, when, position}]. */
 function normalizeOverlays(raw, streetId, source, sectionContext) {
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
@@ -126,10 +129,23 @@ function normalizeOverlays(raw, streetId, source, sectionContext) {
             fail(streetId, source, context, 'musi być obiektem.');
         }
         checkKeys(overlay, OVERLAY_KEYS, streetId, source, context);
+        // "back" (the default) is drawn with the background, "front" over the
+        // characters — e.g. a street light standing in the foreground.
+        const position = overlay.position === undefined || overlay.position === null
+            ? 'back'
+            : String(overlay.position);
+        if (!OVERLAY_POSITIONS.includes(position)) {
+            fail(
+                streetId, source, context,
+                `pole "position" ma nieznaną wartość "${position}"`
+                + ` (dozwolone: ${OVERLAY_POSITIONS.map(value => `"${value}"`).join(', ')}).`
+            );
+        }
         return {
             x: requireNumber(overlay.x, 'x', streetId, source, context),
             y: requireNumber(overlay.y, 'y', streetId, source, context),
             when: normalizeCondition(overlay.when, streetId, source, context),
+            position,
         };
     });
 }
@@ -165,6 +181,9 @@ function normalizeInteractions(raw, streetId, source, sectionContext) {
             type,
             x1: requireNumber(interaction.x1, 'x1', streetId, source, context),
             x2: requireNumber(interaction.x2, 'x2', streetId, source, context),
+            // The condition of the spot itself: while it does not hold, the
+            // spot is not interactive at all — the player walks over it.
+            when: normalizeCondition(interaction.when, streetId, source, context),
             triggers: normalizeTriggers(interaction.triggers, streetId, source, context),
         };
     });

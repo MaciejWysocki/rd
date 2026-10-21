@@ -13,10 +13,25 @@
             font-style: normal;
         }
         html, body { margin: 0; height: 100%; background: #000; }
-        body { display: flex; align-items: center; justify-content: center; font-family: 'Press Start 2P', monospace; }
+        body { display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Press Start 2P', monospace; }
+        /* The mission logs live ABOVE the game area: the objective that is
+           still open, right-aligned to the canvas' right edge (owner
+           2026-10-21). The box keeps its height, so the canvas never jumps. */
+        #missionLogs {
+            width: 1600px;
+            height: 32px;
+            box-sizing: border-box;
+            padding: 4px 16px 0 0;
+            color: #fff;
+            font: 20px/24px 'Press Start 2P';
+            text-align: right;
+            white-space: pre;
+            text-shadow: 0 0 4px #000;
+        }
     </style>
 </head>
 <body>
+    <div id="missionLogs"></div>
     <canvas id="gameCanvas" width="1600" height="800"></canvas>
     <script type="module" src="src/main.js"></script>
 </body>

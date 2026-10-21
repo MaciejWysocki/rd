@@ -142,6 +142,8 @@ export default class Session {
 
     /**
      * Takes an item out of the inventory — the count never goes below zero.
+     * The last one is gone for good: the entry leaves the inventory, so the
+     * item disappears from the HUD as well.
      * @param {string} id The item's id.
      * @param {number} qty How many items.
      */
@@ -149,6 +151,7 @@ export default class Session {
         const entry = this._inventory[id];
         if (!entry) return;
         entry.qty = Math.max(0, entry.qty - qty);
+        if (entry.qty === 0) delete this._inventory[id];
     }
 
     /**

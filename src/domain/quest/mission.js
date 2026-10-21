@@ -11,7 +11,12 @@
 // Stage 0 is where the street starts (entered automatically with the street).
 // The stage is moved by the triggers of the sections and interactions: a
 // "mission" effect sets the stage directly (advanceTo), so the mission logic
-// stays in the config and nowhere else.
+// stays in the config and nowhere else. A defeated boss moves the mission on
+// as well (the app layer, play-screen.js): its objective is done.
+//
+// A stage BEYOND the last one (a stage with no log line of its own) means
+// "the street is over" — that is how a config ends a street (e.g. the
+// mission of four lines is advanced to 4).
 
 export default class Mission {
     /** @param {string[]} stages One log line per mission stage. */
@@ -31,16 +36,25 @@ export default class Mission {
     }
 
     /**
-     * The mission-log rows for the HUD: the street's opening objective on the
-     * first row, the current objective on the second one (once the mission
-     * has moved past the first stage).
-     * @returns {string[]} The rows (empty when the mission has no log lines).
+     * True when the mission was advanced PAST its last stage: the stage has
+     * no log line of its own. That is how a config ends a street — the mission
+     * is moved beyond its end (e.g. {"mission": 4} of a four-line mission).
+     * @returns {boolean}
+     */
+    get isPastEnd() {
+        return this.stages[this.stage] === undefined;
+    }
+
+    /**
+     * The mission-log rows for the HUD: the objective that is still open — the
+     * line of the current stage. A finished objective disappears: the next
+     * stage takes its place (owner 2026-10-21 — the log sits above the game
+     * area and shows the open objective only).
+     * @returns {string[]} The rows (empty when the mission has no line left).
      */
     get logRows() {
-        const rows = [];
-        if (this.stages[0]) rows.push(this.stages[0]);
-        if (this.stage > 0 && this.stages[this.stage]) rows.push(this.stages[this.stage]);
-        return rows;
+        const line = this.stages[this.stage];
+        return line ? [line] : [];
     }
 
     /**

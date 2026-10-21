@@ -18,7 +18,7 @@ import WalkableInteraction from './walkable-interaction.js';
 import {
     startAmbient, startBossMusic, playBossIntro, stopAllAudio, playSound, playAttackSound,
 } from '../audio/audio.js';
-import { drawHud } from '../render/hud.js';
+import { drawHud, drawMissionLogs } from '../render/hud.js';
 import Blood from '../render/blood.js';
 import { arbitrate } from '../domain/combat/arena.js';
 import { selectTrigger, matchesCondition } from '../domain/quest/triggers.js';
@@ -41,18 +41,21 @@ export default class PlayScreen {
      * @param {Player} deps.player
      * @param {Keyboard} deps.keyboard
      * @param {Session} deps.session The session (HP, money, items, the mission shown in the HUD).
+     * @param {HTMLElement|null} [deps.missionLogs] The element above the game
+     *        area that carries the mission logs (owner 2026-10-21).
      * @param {Function} deps.onGameEnd Called once with 'lost' (Rudy's HP hit 0)
      *                                  or 'won' (the last street finished).
      */
-    constructor({ ctx, world, player, keyboard, session, onGameEnd }) {
+    constructor({ ctx, world, player, keyboard, session, missionLogs = null, onGameEnd }) {
         this.ctx = ctx;
         this.world = world;
         this.player = player;
         this.keyboard = keyboard;
         this.session = session;
+        this.missionLogs = missionLogs;
         this.onGameEnd = onGameEnd;
         this.transitioning = false;
-        this.interaction = new WalkableInteraction();
+        this.interaction = new WalkableInteraction({ screenWidth: ctx.canvas.width });
         this.endSent = false;      // the shared end screen is requested exactly once
         this.streetFinished = false; // the current street is done — the next one follows
         this.blood = new Blood();
@@ -81,7 +84,10 @@ export default class PlayScreen {
         this.session.playTimeMs += dt;
 
         const section = this.world.currentSection;
-        const solids = section ? section.boundaries : [];
+        // While a boss fight is on, the invisible barriers of the visible area
+        // join the walls of the section: the player and the hostiles stay
+        // inside the screen, exactly as at the end of the street.
+        const solids = section ? section.solids(this._bossFightOngoing(section)) : [];
 
         if (this.interaction.active) {
             // The jump press during the script cannot fire after leaving the spot.
@@ -95,7 +101,7 @@ export default class PlayScreen {
         this.blood.update(dt);
 
         this._checkBossTrigger(section);
-        this._resolveCombat(section);
+        this._resolveCombat(section, solids);
         this._updateProjectiles(section, dt);
         this._checkStreetComplete(section);
         this._syncStats();
@@ -148,12 +154,12 @@ export default class PlayScreen {
     }
 
     /** Resolves ready attacks chronologically, not in player/enemy update order. */
-    _resolveCombat(section) {
+    _resolveCombat(section, solids) {
         if (!section) return;
 
         const events = arbitrate([this.player, ...section.enemies], {
             player: this.player,
-            solids: section.boundaries,
+            solids,
         });
         for (const event of events) {
             if (event.type === 'hit') {
@@ -183,11 +189,14 @@ export default class PlayScreen {
     }
 
     /**
-     * The street is over when the mission is finished and no boss is standing:
-     * the next street of the game follows; after the last one the game ends.
+     * The street is over when the mission was moved past its last stage and
+     * no boss is standing: the next street of the game follows; after the last
+     * one the game ends. A scripted sequence of a walkable spot plays out
+     * first — the street ends when Rudy is back outside the spot.
      */
     _checkStreetComplete(section) {
         if (this.streetFinished) return;
+        if (this.interaction.active) return;
         if (!this.world.isStreetComplete()) return;
 
         const boss = section?.enemies.find(enemy => enemy.role === 'boss' && enemy.defeated);
@@ -246,6 +255,30 @@ export default class PlayScreen {
             enemy.slot,
             enemy,
         );
+        // A defeated boss closes its objective: the mission moves on to the
+        // next stage. The street itself ends only when the mission is moved
+        // past its last stage (see World.isStreetComplete).
+        if (enemy.role === 'boss') {
+            this._advanceMission();
+            this._restoreAmbience();
+        }
+    }
+
+    /**
+     * The boss is down: the fight music gives way to the street ambience
+     * again (owner 2026-10-21).
+     */
+    _restoreAmbience() {
+        this._musicOwner = null;
+        const section = this.world.currentSection;
+        if (!section) return;
+        startAmbient(ambientTrack(this.world.streetId, section.number));
+    }
+
+    /** Moves the mission on to the next stage (a defeated boss closes its objective). */
+    _advanceMission() {
+        const mission = this.session.mission;
+        mission.advanceTo(mission.stage + 1);
     }
 
     /** The hostiles currently in fight mode (the HUD shows their HP), in order. */
@@ -256,6 +289,9 @@ export default class PlayScreen {
     /** Returns 'right' or 'left' when Rudy's hitbox leaves the section, otherwise null. */
     _exitDirection(section) {
         if (!section) return null;
+        // The boss fight holds the player on the section: he may not walk into
+        // the neighbouring one until the boss is down (owner 2026-10-21).
+        if (this._bossFightOngoing(section)) return null;
         const { x, hitbox } = this.player;
         const left = x + hitbox.x;
         const right = left + hitbox.w;
@@ -264,10 +300,21 @@ export default class PlayScreen {
         return null;
     }
 
-    /** The walkable spot the player stands in, or null. */
+    /** True while a boss of the section is fighting (the fight locks the section). */
+    _bossFightOngoing(section) {
+        return (section?.enemies ?? []).some(enemy =>
+            enemy.role === 'boss' && enemy.fightStarted && !enemy.defeated);
+    }
+
+    /**
+     * The walkable spot the player stands in, or null. A spot with a
+     * condition of its own that does not hold is no spot at all: the player
+     * walks over it and the ↑ key jumps as usual.
+     */
     _interactionAt(section) {
         if (!section) return null;
         for (const spot of section.interactions) {
+            if (!matchesCondition(spot.when, this._context())) continue;
             if (this.player.x >= spot.x1 && this.player.x <= spot.x2) return spot;
         }
         return null;
@@ -312,29 +359,41 @@ export default class PlayScreen {
             ctx.drawImage(section.background, 0, 0, ctx.canvas.width, ctx.canvas.height);
         }
 
-        this._drawOverlays(section);
+        this._drawOverlays(section, 'back');
 
         for (const enemy of section?.enemies ?? []) enemy.draw(ctx);
         this.player.draw(ctx);
         this.blood.draw(ctx); // spray and stains, over the characters
 
+        // The foreground overlays stand in front of everybody: the street
+        // light covers the player and the enemies behind it.
+        this._drawOverlays(section, 'front');
+
         // HUD stays on top: hearts, coins and carried items at the left;
-        // two mission-log rows above the fighting enemies' hearts at the right
-        // (one row per foe).
+        // the fighting enemies' hearts in the top-right corner (one row per
+        // foe). The mission logs live above the game area (owner 2026-10-21).
         const foes = this._fightingFoes(section);
         drawHud(ctx, {
             hp: this.session.stats[this.player.name]?.hp ?? 0,
             money: this.session.money,
             items: this.session.inventory,
             enemies: foes.map(foe => ({ hp: foe.hp, maxHp: foe.maxHp, hue: foe.hue })),
-            missionLogs: this.session.logRows,
         });
+        drawMissionLogs(this.missionLogs, this.endSent ? [] : this.session.logRows);
     }
 
-    /** Draws the background overlays of the section (shop signs, waiting poses). */
-    _drawOverlays(section) {
+    /**
+     * Draws the background overlays of the section (shop signs, waiting poses).
+     * The "back" ones belong to the scenery and are drawn with the
+     * background; the "front" ones stand in the foreground and are drawn over
+     * the characters (a street light covering whoever is behind it).
+     * @param {object} section The section being drawn.
+     * @param {'back'|'front'} layer The layer to draw.
+     */
+    _drawOverlays(section, layer) {
         const overlays = section?.model.overlays ?? [];
         overlays.forEach((overlay, index) => {
+            if ((overlay.position ?? 'back') !== layer) return;
             if (!matchesCondition(overlay.when, this._context())) return;
             this._drawOverlay(overlayPath(this.world.streetId, section.number, index + 1), overlay);
         });

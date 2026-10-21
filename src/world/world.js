@@ -11,8 +11,9 @@
 //
 // The streets themselves are played one after another, in file-name order
 // (see content-repository.js): the game ends when the last street is finished.
-// A street is finished when the mission has reached its last stage and no
-// boss of the street is still standing.
+// A street is finished when the mission has been advanced PAST its last stage
+// (the config ends a street that way) and no boss of the street is still
+// standing.
 
 import Section from './section.js';
 import { matchesCondition } from '../domain/quest/triggers.js';
@@ -122,13 +123,15 @@ export default class World {
     }
 
     /**
-     * True when the street is finished: the mission has reached its last stage
-     * and no boss of the street is still standing. A boss that is not present
-     * any more (its "presentWhen" no longer holds) does not block the street.
+     * True when the street is finished: the mission was advanced PAST its last
+     * stage (a stage with no log line of its own — that is how a config ends
+     * a street) and no boss of the street is still standing. A boss that is
+     * not present any more (its "presentWhen" no longer holds) does not block
+     * the street.
      */
     isStreetComplete() {
         if (!this.street) return false;
-        if (this.session.mission.stage < this.session.mission.lastStage) return false;
+        if (!this.session.mission.isPastEnd) return false;
         return !this.street.sections.some(section =>
             section.bosses.some(boss => this._bossBlocks(section, boss)));
     }

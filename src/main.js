@@ -45,10 +45,14 @@ const game = new Game(session);
 /**
  * Builds a fresh game: a clean session (stats and money seeded from the
  * character config), the first street of the game, Rudy at the start line.
- * This is both the boot path and the restart from the end screen — there are
- * no saves.
+ * This is both the boot path and the restart from the end screen — there
+ * are no saves.
  */
 async function startFreshGame() {
+    // The section the player died in hands the state of its hostiles (where
+    // they stand, where they fell) over to the session — the reset below
+    // wipes it, so a new game starts with the hostiles at their posts.
+    await world.leaveCurrent();
     session.resetForNewGame(playerCharacter);
     await world.gotoStreet(0);
 
@@ -64,6 +68,7 @@ async function startFreshGame() {
 
     const playScreen = new PlayScreen({
         ctx, world, player, keyboard, session,
+        missionLogs: document.getElementById('missionLogs'),
         onGameEnd: result => game.changeState(new EndScreen({
             ctx, session, keyboard, result,
             streetId: world.streetId,

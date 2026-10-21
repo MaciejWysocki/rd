@@ -56,6 +56,7 @@ export default class Section {
         // Runtime state (reset on leave)
         this.background = null;
         this.boundaries = [];
+        this._fightSolids = null; // the boundaries + the barriers of a boss fight
         this.interactions = [];
         this.enemies = [];
         this.active = false;
@@ -71,6 +72,7 @@ export default class Section {
 
         this.background = await this._loadBackground();
         this.boundaries = this._buildBoundaries();
+        this._fightSolids = null;
         this._applyTriggers(context);
         this.enemies = await this._spawnEnemies(session, context);
         this.interactions = this.model.interactions.map(interaction => ({ ...interaction }));
@@ -123,6 +125,27 @@ export default class Section {
         return walls;
     }
 
+    /**
+     * The solids of the section: the walls of the street ends. While a boss
+     * fight is on, the **invisible barriers of the visible area** join them:
+     * they are the very same walls the ends of a street have, so the player
+     * and the hostiles stop exactly as they do at the end of the street —
+     * nobody walks out of the screen during the fight (owner 2026-10-21).
+     * @param {boolean} fighting True while a boss of the section is fighting.
+     * @returns {Array<{x:number,y:number,w:number,h:number}>} The solids.
+     */
+    solids(fighting = false) {
+        if (!fighting) return this.boundaries;
+        if (!this._fightSolids) {
+            this._fightSolids = [
+                ...this.boundaries,
+                { x: 0, y: 0, w: WALL_W, h: CANVAS_H },
+                { x: CANVAS_W - WALL_W, y: 0, w: WALL_W, h: CANVAS_H },
+            ];
+        }
+        return this._fightSolids;
+    }
+
     /** Applies the section's own triggers — e.g. the mission moving on when the player enters. */
     _applyTriggers(context) {
         for (const trigger of this.model.onEnter) {
@@ -139,6 +162,8 @@ export default class Section {
      * is persisted in the session: on re-entry a dead one is still lying where
      * it fell instead of a fresh enemy appearing, and a living one still
      * stands where the player left it instead of jumping back to its post.
+     * A body stays on the street even when its condition no longer holds —
+     * the boss keeps his corpse after his stage is over.
      *
      * Two hostiles of the same type get different colors: the first one of a
      * type keeps the original colors, every further copy of it gets one of
@@ -152,10 +177,13 @@ export default class Section {
         ];
 
         // The hostiles that are really in the world: the ones whose condition
-        // holds and whose type is implemented.
+        // holds and whose type is implemented — plus the ones that FELL here:
+        // their body lies where it fell, even when their condition no longer
+        // holds (the boss keeps his corpse on the street after his stage is
+        // over, exactly like the other enemies).
         const spawnable = [];
         for (const entity of entities) {
-            if (!matchesCondition(entity.presentWhen, context)) continue;
+            if (!matchesCondition(entity.presentWhen, context) && !this._fellHere(session, entity)) continue;
             const character = await this.content.getCharacter(entity.type);
             if (!character) continue; // not implemented yet
             spawnable.push({ entity, character });
@@ -201,5 +229,26 @@ export default class Section {
             enemies.push(enemy);
         }
         return enemies;
+    }
+
+    /**
+     * True when this hostile fell in this section: its body lies where it
+     * fell and it stays there — even when its condition ("presentWhen") no
+     * longer holds. The boss is the case that needs it: his stage ends with
+     * his death, but his corpse belongs to the street like the body of any
+     * other enemy.
+     * @param {Session} session The session (the state of the hostiles).
+     * @param {object} entity The entity model of the section.
+     * @returns {boolean}
+     */
+    _fellHere(session, entity) {
+        const state = session.getHostile(
+            this.street.id,
+            this.number,
+            entity.role,
+            entity.id,
+            entity.slot,
+        );
+        return Boolean(state?.defeated);
     }
 }
