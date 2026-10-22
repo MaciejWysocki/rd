@@ -1,4 +1,5 @@
-rd
-==
+# Rudy Dres
 
-Rudy Dres ale za tydzień to co powstanie może już nie być na temat ;)
+![Screenshot of the game](assets/screenshot.png)
+
+Idź Narutowicza na Wschodnią i napij się piwa.
