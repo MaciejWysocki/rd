@@ -1,6 +1,6 @@
-// src/domain/actors/hitbox.js
+// src/domain/actors/shitbox.js
 //
-// hitbox.js — the collision box of an actor in world coordinates.
+// shitbox.js — the collision box of an actor in world coordinates.
 //
 // The box of a character is defined per character config ({ x, y, w, h },
 // relative to the 150x150 frame). These helpers turn it into the world
@@ -15,7 +15,7 @@
  * @param {number} [y] The frame's top edge (defaults to the actor's y).
  * @returns {{left:number,right:number,top:number,bottom:number}} The box.
  */
-export function hitboxRect(actor, x = actor.x, y = actor.y) {
+export function shitboxRect(actor, x = actor.x, y = actor.y) {
     const left = x + actor.hitbox.x;
     const top = y + actor.hitbox.y;
     return { left, right: left + actor.hitbox.w, top, bottom: top + actor.hitbox.h };

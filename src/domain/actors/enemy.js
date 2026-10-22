@@ -39,7 +39,7 @@
 // injected projectile instead (releaseProjectile).
 
 import Actor from './actor.js';
-import { centerX } from './hitbox.js';
+import { centerX } from './shitbox.js';
 import { behaviorFor, PATROL } from './behavior.js';
 import { HIT_DAMAGE, STRIKE_REACH_PX, isStrikeInRange } from '../combat/combat.js';
 

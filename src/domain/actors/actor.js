@@ -29,7 +29,7 @@
 
 import { ATTACK_COOLDOWN_MS, HIT_KNOCKBACK_PX } from '../combat/combat.js';
 import { FRAME_SIZE, WALK_FRAMES, ATTACK_FRAMES } from '../content/asset-conventions.js';
-import { hitboxRect } from './hitbox.js';
+import { shitboxRect } from './shitbox.js';
 
 export const ROW_WALK = 0;
 
@@ -178,7 +178,7 @@ export default class Actor {
 
     /** Sweeps the configured knockback distance without crossing a solid or a street-end wall. */
     _knockBack(direction, solids) {
-        const { left, right, top, bottom } = hitboxRect(this);
+        const { left, right, top, bottom } = shitboxRect(this);
         let dx = Math.sign(direction) * HIT_KNOCKBACK_PX;
         for (const solid of solids) {
             if (bottom <= solid.y || top >= solid.y + solid.h) continue;
@@ -281,7 +281,7 @@ export default class Actor {
     }
 
     _collides(x, y, solids) {
-        const { left, right, top, bottom } = hitboxRect(this, x, y);
+        const { left, right, top, bottom } = shitboxRect(this, x, y);
         return solids.some(s =>
             left < s.x + s.w && right > s.x && top < s.y + s.h && bottom > s.y
         );

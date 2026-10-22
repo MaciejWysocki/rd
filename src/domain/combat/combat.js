@@ -11,7 +11,7 @@
 // — it only returns the outcome, and the application layer turns the outcome
 // into sound and blood.
 
-import { hitboxRect, centerX } from '../actors/hitbox.js';
+import { shitboxRect, centerX } from '../actors/shitbox.js';
 
 export const STRIKE_REACH_PX = 80;
 export const ATTACK_COOLDOWN_MS = 700; // recovery after a blow ends or a hit lands
@@ -29,8 +29,8 @@ const BEATS = { headbutt: 'punch', punch: 'kick', kick: 'headbutt' };
  * @param {number} [reachPx] Reach override (e.g. a ranged attack's range).
  */
 export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
-    const a = hitboxRect(attacker);
-    const t = hitboxRect(target);
+    const a = shitboxRect(attacker);
+    const t = shitboxRect(target);
 
     if (a.bottom <= t.top || a.top >= t.bottom) return false;
 
