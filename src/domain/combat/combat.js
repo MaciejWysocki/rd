@@ -11,6 +11,8 @@
 // — it only returns the outcome, and the application layer turns the outcome
 // into sound and blood.
 
+import { hitboxRect, centerX } from '../actors/hitbox.js';
+
 export const STRIKE_REACH_PX = 80;
 export const ATTACK_COOLDOWN_MS = 700; // recovery after a blow ends or a hit lands
 export const HIT_DAMAGE = 1;
@@ -27,25 +29,29 @@ const BEATS = { headbutt: 'punch', punch: 'kick', kick: 'headbutt' };
  * @param {number} [reachPx] Reach override (e.g. a ranged attack's range).
  */
 export function isStrikeInRange(attacker, target, reachPx = STRIKE_REACH_PX) {
-    const a = attacker.hitbox;
-    const t = target.hitbox;
-    const aLeft = attacker.x + a.x;
-    const aRight = aLeft + a.w;
-    const aTop = attacker.y + a.y;
-    const aBottom = aTop + a.h;
-    const tLeft = target.x + t.x;
-    const tRight = tLeft + t.w;
-    const tTop = target.y + t.y;
-    const tBottom = tTop + t.h;
+    const a = hitboxRect(attacker);
+    const t = hitboxRect(target);
 
-    if (aBottom <= tTop || aTop >= tBottom) return false;
+    if (a.bottom <= t.top || a.top >= t.bottom) return false;
 
-    const aCenter = aLeft + a.w / 2;
-    const tCenter = tLeft + t.w / 2;
+    const aCenter = (a.left + a.right) / 2;
+    const tCenter = (t.left + t.right) / 2;
     if ((tCenter - aCenter) * attacker.facing <= 0) return false; // target not in front
 
-    const gap = tCenter > aCenter ? tLeft - aRight : aLeft - tRight;
+    const gap = tCenter > aCenter ? t.left - a.right : a.left - t.right;
     return gap <= reachPx;
+}
+
+/**
+ * The direction a blow pushes its target: towards the target's centre, the
+ * attacker's facing as the fallback. The knockback and the blood spray both
+ * use it, so it is defined once.
+ * @param {Actor} attacker
+ * @param {Actor} target
+ * @returns {number} -1 (left) or 1 (right).
+ */
+export function strikeDirection(attacker, target) {
+    return Math.sign(centerX(target) - centerX(attacker)) || attacker.facing;
 }
 
 /**
@@ -81,8 +87,6 @@ export function resolveStrike(attacker, target, solids = []) {
         }
     }
 
-    const direction = Math.sign(target.x + target.hitbox.x + target.hitbox.w / 2
-        - (attacker.x + attacker.hitbox.x + attacker.hitbox.w / 2)) || attacker.facing;
-    target.takeDamage(HIT_DAMAGE, direction, solids);
+    target.takeDamage(HIT_DAMAGE, strikeDirection(attacker, target), solids);
     return 'hit';
 }

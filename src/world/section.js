@@ -29,11 +29,7 @@ import Vomit from '../render/vomit.js';
 import { planEntityHues } from './entity-hues.js';
 import { FRAME_SIZE, spritePath, backgroundPath } from '../domain/content/asset-conventions.js';
 import { applyEffects, matchesCondition } from '../domain/quest/triggers.js';
-
-// The canvas is fixed (index.html): 1600x800 world pixels.
-const CANVAS_W = 1600;
-const CANVAS_H = 800;
-const WALL_W = 40; // the width of the wall that closes the ends of the street
+import { CANVAS_W, CANVAS_H, WALL_W } from './layout.js';
 
 export default class Section {
     /**
@@ -89,7 +85,7 @@ export default class Section {
     leave(session) {
         for (const enemy of this.enemies) {
             if (enemy.defeated) continue; // the corpse was recorded where it fell
-            session.saveHostile(this.street.id, this.number, enemy.role, enemy.id, enemy.slot, {
+            session.saveHostile(this._identity(enemy), {
                 x: enemy.x,
                 y: enemy.y,
                 facing: enemy.facing,
@@ -216,19 +212,30 @@ export default class Section {
             });
             await enemy.load();
 
-            const state = session.getHostile(
-                this.street.id,
-                this.number,
-                entity.role,
-                entity.id,
-                entity.slot,
-            );
+            const state = session.getHostile(this._identity(entity));
             if (state?.defeated) enemy.spawnDefeated(state); // the body lies where it fell
             else if (state) enemy.restoreState(state); // it stands where the player left it
 
             enemies.push(enemy);
         }
         return enemies;
+    }
+
+    /**
+     * The identity of a hostile in the state store of the session: the
+     * street, the section, the list it comes from, its label and its place
+     * in that list.
+     * @param {object} entity The entity (an enemy or a boss of the model).
+     * @returns {object} The identity.
+     */
+    _identity(entity) {
+        return {
+            streetId: this.street.id,
+            section: this.number,
+            role: entity.role,
+            id: entity.id,
+            slot: entity.slot,
+        };
     }
 
     /**
@@ -242,13 +249,7 @@ export default class Section {
      * @returns {boolean}
      */
     _fellHere(session, entity) {
-        const state = session.getHostile(
-            this.street.id,
-            this.number,
-            entity.role,
-            entity.id,
-            entity.slot,
-        );
+        const state = session.getHostile(this._identity(entity));
         return Boolean(state?.defeated);
     }
 }

@@ -14,6 +14,12 @@
 // A street is finished when the mission has been advanced PAST its last stage
 // (the config ends a street that way) and no boss of the street is still
 // standing.
+//
+// The world also owns the **trigger context** — the snapshot of the world
+// the conditions and the effects of the config are read against. There is
+// exactly one builder of it (context()), so every reader sees the same
+// world: the sections, the entities and the play screen all ask the world
+// for it.
 
 import Section from './section.js';
 import { matchesCondition } from '../domain/quest/triggers.js';
@@ -32,6 +38,15 @@ export default class World {
         this.sections = [];
         this.sectionIndex = -1;
         this.currentSection = null;
+        this.player = null;    // the player — the context needs him
+        // The context is rebuilt in place (one object, no allocation per
+        // frame) and handed out to every reader of the world.
+        this._context = {
+            session: this.session,
+            mission: null,
+            player: null,
+            streetId: null,
+        };
     }
 
     /** @param {string[]} ids Street ids, in play order. */
@@ -39,14 +54,19 @@ export default class World {
         this.streetIds = [...ids];
     }
 
+    /**
+     * Sets the player the context is built around. The player belongs to
+     * the running game, not to the world — the world only knows him so that
+     * the conditions can ask where he stands.
+     * @param {Player} player The player.
+     */
+    setPlayer(player) {
+        this.player = player;
+    }
+
     /** The id of the current street, e.g. "01-narutowicza" — the asset/name convention. */
     get streetId() {
         return this.street?.id ?? null;
-    }
-
-    /** The display name of the current street, e.g. "Narutowicza". */
-    get streetName() {
-        return this.street?.name ?? null;
     }
 
     /** True when a street follows the current one. */
@@ -62,6 +82,20 @@ export default class World {
     /** True when a section precedes the current one (the street goes on to the left). */
     get hasPreviousSection() {
         return this.sectionIndex > 0;
+    }
+
+    /**
+     * The context of the triggers: the session, the current mission, the
+     * player and the current street. The conditions of the config are read
+     * against it. It is the same object every time — the fields are refreshed
+     * on every call.
+     * @returns {{session:object, mission:object, player:object|null, streetId:string}}
+     */
+    context() {
+        this._context.mission = this.session.mission;
+        this._context.player = this.player;
+        this._context.streetId = this.streetId;
+        return this._context;
     }
 
     /**
@@ -139,21 +173,18 @@ export default class World {
     /** True when the boss is present in the world and has not been defeated yet. */
     _bossBlocks(section, boss) {
         if (boss.presentWhen && !matchesCondition(boss.presentWhen, this.context())) return false;
-        const state = this.session.getHostile(this.street.id, section.number, 'boss', boss.id, boss.slot);
+        const state = this.session.getHostile(this._bossIdentity(section, boss));
         return !state?.defeated;
     }
 
-    /**
-     * The context of the triggers: the session, the current mission, the
-     * player and the current street. The conditions of the config are read
-     * against it.
-     */
-    context(player = null) {
+    /** The identity of a boss in the state store of the session. */
+    _bossIdentity(section, boss) {
         return {
-            session: this.session,
-            mission: this.session.mission,
-            player,
-            streetId: this.streetId,
+            streetId: this.street.id,
+            section: section.number,
+            role: 'boss',
+            id: boss.id,
+            slot: boss.slot,
         };
     }
 

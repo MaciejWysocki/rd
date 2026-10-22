@@ -18,6 +18,7 @@ import EndScreen from './app/end-screen.js';
 import SpriteSheet from './render/sprite-sheet.js';
 import { playJumpSound } from './audio/audio.js';
 import { FRAME_SIZE, spritePath } from './domain/content/asset-conventions.js';
+import { START_X, GROUND_Y } from './world/layout.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -40,7 +41,11 @@ const gameKeys = [
 ].filter(Boolean);
 const keyboard = new Keyboard(undefined, gameKeys);
 
-const game = new Game(session);
+const game = new Game();
+
+// The parts of the composition root, exposed so the game can be inspected
+// from the outside (the tests drive the real objects).
+export { game, session, world };
 
 /**
  * Builds a fresh game: a clean session (stats and money seeded from the
@@ -54,17 +59,20 @@ async function startFreshGame() {
     // wipes it, so a new game starts with the hostiles at their posts.
     await world.leaveCurrent();
     session.resetForNewGame(playerCharacter);
-    await world.gotoStreet(0);
 
     const sheet = new SpriteSheet(
         spritePath(playerCharacter.sprite),
         FRAME_SIZE,
         playerCharacter.framesPerRow,
     );
-    const player = new Player({ x: 50, y: 598, character: playerCharacter, sheet });
+    const player = new Player({ x: START_X, y: GROUND_Y, character: playerCharacter, sheet });
     // The domain stays free of the audio adapter: the jump sound is hooked in here.
     player.onJump = () => playJumpSound(playerCharacter.name);
     await player.load();
+    // The world builds the trigger context — it needs to know the player.
+    world.setPlayer(player);
+
+    await world.gotoStreet(0);
 
     const playScreen = new PlayScreen({
         ctx, world, player, keyboard, session,

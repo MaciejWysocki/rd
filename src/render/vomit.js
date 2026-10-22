@@ -10,10 +10,14 @@
 // staining it until the section is left. One burst hurts at most once and
 // never sprays blood — the green squares are the whole effect. A player who
 // jumps over the spray is not hit (owner 2026-10-15).
+//
+// The physics of the squares is the shared particle field
+// (render/particles.js); this module only says how the spit looks, where it
+// is born and when it hurts.
 
+import ParticleField from './particles.js';
 import { FRAME_SIZE } from '../domain/content/asset-conventions.js';
 
-const PARTICLE_SIZE_PX = 5;
 const PARTICLES_PER_BURST = 40;    // enough squares to read as a visible spray (owner 2026-10-15)
 export const VOMIT_HIT_PX = 300;   // the burst can hurt the player this far from the mouth
 export const VOMIT_RANGE_PX = 600; // where the squares land on the ground
@@ -41,17 +45,17 @@ export default class Vomit {
         const originY = boss.y + MOUTH_HEIGHT_PX;
         const groundY = boss.y + boss.hitbox.y + boss.hitbox.h;
         const speedX = dirX * VOMIT_RANGE_PX / FLIGHT_MS;
-        const particles = [];
+        const field = new ParticleField({ size: 5, color: COLOR, gravity: GRAVITY_PX_PER_MS2 });
         for (let i = 0; i < PARTICLES_PER_BURST; i++) {
-            particles.push({
-                x: originX,
-                y: originY,
-                vx: speedX * (0.9 + Math.random() * 0.2),
-                vy: -(0.075 + Math.random() * 0.125),
-                landed: false,
-            });
+            field.add(
+                originX,
+                originY,
+                speedX * (0.9 + Math.random() * 0.2),
+                -(0.075 + Math.random() * 0.125),
+                groundY,
+            );
         }
-        this.bursts.push({ originX, dirX, groundY, particles, hit: false });
+        this.bursts.push({ originX, dirX, field, hit: false });
     }
 
     /**
@@ -63,24 +67,12 @@ export default class Vomit {
         let landedUnhit = false;
         let hitLanded = false;
         for (const burst of this.bursts) {
-            let allLanded = true;
-            for (const p of burst.particles) {
-                if (p.landed) continue;
-                p.vy += GRAVITY_PX_PER_MS2 * dt;
-                p.x += p.vx * dt;
-                p.y += p.vy * dt;
-                if (p.y >= burst.groundY) {
-                    p.y = burst.groundY;
-                    p.landed = true;
-                } else {
-                    allLanded = false;
-                }
-            }
+            burst.field.update(dt);
             if (!burst.hit && target && this._reaches(burst, target)) {
                 burst.hit = true;
                 hitLanded = true;
             }
-            if (allLanded && !burst.hit) {
+            if (burst.field.allLanded && !burst.hit) {
                 burst.hit = true; // over: it can no longer hurt anyone
                 landedUnhit = true;
             }
@@ -92,8 +84,8 @@ export default class Vomit {
 
     /** The particle that is furthest along the flight direction. */
     _leadX(burst) {
-        let lead = burst.particles[0].x;
-        for (const p of burst.particles) {
+        let lead = burst.field.particles[0].x;
+        for (const p of burst.field.particles) {
             if (burst.dirX > 0 ? p.x > lead : p.x < lead) lead = p.x;
         }
         return lead;
@@ -110,15 +102,12 @@ export default class Vomit {
         const right = left + FRAME_SIZE;
         const top = target.y;
         const bottom = top + FRAME_SIZE;
-        return burst.particles.some(p => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom);
+        return burst.field.particles.some(p => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom);
     }
 
     draw(ctx) {
-        ctx.fillStyle = COLOR;
         for (const burst of this.bursts) {
-            for (const p of burst.particles) {
-                ctx.fillRect(p.x, p.y, PARTICLE_SIZE_PX, PARTICLE_SIZE_PX);
-            }
+            burst.field.draw(ctx);
         }
     }
 

@@ -1,183 +1,124 @@
-# AGENTS.md — Rudy Dres rd4: project context
+# AGENTS.md — how to work on this project
 
-Read this before touching the repo. Companion files: [FEATURES.md](FEATURES.md) (feature/progress tracker) and [PLAN.md](PLAN.md) (phased implementation plan — the workable plan to implement against).
+Rudy Dres is a browser "karate" beat-'em-up: Rudy walks a real street in the owner's city, fights the thugs and the bosses and works through the street missions. Vanilla JavaScript ES modules and Canvas 2D — **no build step, no framework, no tests, no lint**. Desktop and keyboard only.
 
-## What this game is
+**This file is the working context — how the code is built and the rules to follow.** It does not describe what the game contains:
 
-A simple browser-based "karate" game — a beat-'em-up in the style of Amiga titles like *Renegade* or *Final Fight* — launched in a web browser (no installation) and played on **desktop with a keyboard**. The only playable character is **Rudy** ("rudy dres" = a red tracksuit guy), on a **real street in the owner's city** (Polish names: `01-narutowicza`, "Zielona 3", "Narutowicza 6"): fight enemies, complete missions, fight bosses. The two pillars are **combat and questing**. Tone: gritty Polish street humor. Player-facing names and error messages are Polish.
-
-## Game world model
-
-- The world consists of **streets**, each street made up of **sections**. The streets are played **one after another, in file-name order** (`01-narutowicza`, then `02-…`, `03-…`); the game ends when the **last** street is finished. A street is a single JSON file: `data/streets/<number>-<name>.json`.
-- A street's **sections are placed from left to right** and can be traversed back and forth — the player walks into the neighbouring section and may return. There is **no route** any more: the section list in the config *is* the street.
-- **No continuous scrolling**: each section is a **static background screen** (side-view street imagery with a flat street/sidewalk strip at the bottom where characters move); the game switches screens when the player reaches a section edge (like the Atari game *Ninja*). At the **ends of the street the boundary blocks Rudy and he walks in place**.
-- **On entering a section** (`Section.enter()` in `src/world/section.js`): 1. load the background → 2. build the boundaries (walls) → 3. apply the section's `onEnter` triggers (the mission may move on) → 4. spawn the hostiles (`enemies` + `bosses`) → 5. load the walkable interactions. The triggers run first, so what is in the world matches the state the player just walked into.
-- **On exiting a section**: the **hostiles keep their state** in the session — a **living** hostile stands where the player left it when the section is entered again (it does not jump back to its post), a **defeated** one still lies where it fell (the body instead of a fresh enemy). A body stays on the street **even when its `presentWhen` condition no longer holds** — the boss keeps his corpse on the street after his stage is over (owner 2026-10-22). The mission, inventory, money, world flags and stats → do not reset (they live in the `Session`). There is **no save system** (session-only play): Rudy's defeat — like winning the game — shows a shared end screen with statistics and a restart button (click or Enter — Space does not restart; `game-over` on defeat / `<street>-congratulations` on victory, each played once — no loop; owner decisions 2026-10-11 to 2026-10-15; supersedes the earlier "save in the browser" expectation).
-- This deliberately sets up moments like *"Oh, I came back here and things are different now."* — what spawns in a section can depend on the **mission stage** (see `presentWhen` in the street JSON).
-- **Missions**: every street has **one main mission** — the `mission` field of the street config, an array of log lines where the index is the mission stage. The stage moves on through the **effects** of the config's triggers (a `{"mission": 2}` effect sets the stage). The **mission log** (the objective that is still open — the line of the current stage) sits **above the game area**, in the `#missionLogs` element of the page, right-aligned to the canvas' right edge; a finished objective **disappears** when the next stage is reached. Side quests per section are still planned.
-- **Hostiles**: every section holds a list of `enemies` and a list of `bosses` — the **role** (enemy / boss) comes from the list the entity is in. Every entity may carry a `presentWhen` condition: it exists in the world only while the condition holds (this is what the old boss-only `"mission": [1, 2]` did). Its `fight` trigger (`always` / `distance` / `hit`) decides when the fight starts. The `presentWhen` condition is evaluated when the section is entered — the entity is spawned only while the condition holds.
-- **When a street ends** (the rule of 2026-10-21): the street is finished when the **mission is advanced PAST its last stage** — a stage with no log line of its own (e.g. `{"mission": 4}` of a four-line mission) — *and* **no boss of the street is still standing**. A boss that is not present any more (its `presentWhen` no longer holds) does not block the street. A **defeated boss advances the mission by one stage** (its objective is done — "Pokonaj żula" → "Wypij piwo"); it does **not** end the street. The old rule (the flag `<street>_<bossId>_defeated`) is **gone** — the state of the hostiles lives in the session (`hostileStates`) and the conditions read the kills with `when.defeated`.
-- Section backgrounds are loaded from PNGs named `<street>-<section>.png` (e.g. `01-narutowicza-1.png`) — real **photographs** of that part of the actual street, supplied by the owner.
-
-## Tech stack
-
-- Vanilla JavaScript ES modules, Canvas 2D. **No build step, no framework, no tests, no lint.**
-- Run via any static file server from the repo root (the game `fetch`es JSON, so `file://` won't work). Open `index.html`.
-- Canvas is fixed 1600x800, centered on a black page.
-- All page and Canvas text uses the bundled root `PressStart2P-Regular.ttf` as **Press Start 2P**. `index.html` declares the face; `src/main.js` waits for it before starting the game. End-screen text sizes are fitted to the pixel font.
-
-## Architecture map (2026-10-19 DDD refactor)
-
-The game was restructured into explicit layers. **The gameplay behaviour did not change** — the same mechanics, the same timings, the same sounds, the same assets. What changed is the structure and the config schema.
-
-| File | Responsibility |
+| File | What is in it |
 |---|---|
-| `index.html` | The page shell: the canvas and the **mission log element above the game area** (`#missionLogs`). |
-| `src/main.js` | **The composition root**: wires the `ContentRepository`, the `Session`, the `World`, the `Player`, the `Keyboard`, the `Game` and the screens together and starts the loop. `startFreshGame()` is both the boot path and the restart from the end screen (there are no saves); it leaves the old section **before** the session reset, so the state of the hostiles is wiped with it — a new game starts with them at their posts. Rudy spawns at (50, 598). |
-| `src/app/game.js` | `Game`: the rAF loop with delta time (ms) and the screen switch (`changeState`). It holds the session. |
-| `src/app/play-screen.js` | The gameplay screen: input, the section transitions, the fight (the `arbitrate` events → sounds + blood), the HUD, the overlays, the boss music/intro and the drawing. A **boss fight locks the player on his section**: he cannot walk into the neighbouring one until the boss is down, and the **invisible barriers of the visible area** hold the player and the hostiles inside the screen (they behave exactly as at the end of the street). The **boss's death gives the street ambience back**. It ends the street when `world.isStreetComplete()` is true and ends the game on the last street. |
-| `src/app/end-screen.js` | The shared end screen (defeat / victory): the frozen scene, the 2/3-screen panel, the statistics, the ZAGRAJ PONOWNIE button (click or Enter → a fresh game — **Space does NOT restart**, owner 2026-10-15), `game-over` on defeat / `<street>-congratulations` on victory, each played once. |
-| `src/app/walkable-interaction.js` | The scripted sequence of a walkable spot: walk in (`ENTER_MS` 1000) → hidden for the trigger's `stay` → walk out (`EXIT_MS` 1000). The exchange (the mission, the item, the price) happens **300 ms** (`MISSION_LEAD_MS`) before Rudy leaves the spot. The player has no control while it runs. **The way Rudy looks while he walks in follows the side of the screen the spot is on** (owner 2026-10-22): a spot on the left half is entered facing right, a spot on the right half facing left; walking out he turns back the way he came. When the exchange ends the street (the mission was moved past its last stage), Rudy **stays inside** — he does not walk back out. |
-| `src/domain/content/asset-conventions.js` | **The one and only place where an asset path or a sound track name is built** — every naming rule of the game, in one file. |
-| `src/domain/content/character-schema.js` | `data/characters/<type>.json` → the **Character** model (normalization + validation, Polish errors). |
-| `src/domain/content/street-schema.js` | `data/streets/<street>.json` → the **Street** model (schema **v2**: sections, overlays, interactions, enemies, bosses, triggers, conditions, effects). |
-| `src/domain/content/content-repository.js` | File access + caching. **The only module in the domain that may call `fetch`** (streets, characters). |
-| `src/domain/quest/mission.js` | The mission of the current street: the stages and their log lines (`advanceTo` sets the stage — absolute, not a transition map). |
-| `src/domain/quest/triggers.js` | The unified trigger model: `matchesCondition`, `applyEffects`, `selectTrigger`. |
-| `src/domain/quest/session.js` | The session aggregate: the mission, the items, the money, the flags, the stats, the play timer and the state of the hostiles (where they stand, where they fell). |
-| `src/domain/actors/actor.js` | The base actor: position, hitbox, row-based animation, HP/defeat. The sprite sheet is **injected** (the domain must not touch the DOM). |
-| `src/domain/actors/player.js` | Rudy: the arrow keys, the jump, the queued punches, the debug speed multiplier, the `hidden` state of the walkable interaction. |
-| `src/domain/actors/enemy.js` | **ONE class for every hostile** (the old enemy + the old boss): the patrol behaviour, the sentry behaviour, the fight trigger, the ranged attack. |
-| `src/domain/combat/combat.js` | The strike rules (pure): reach, the RPS arbitration, 1 damage, the knockback. It returns the outcome — it plays no sound. |
-| `src/domain/combat/arena.js` | The chronological arbitration (pure): it returns the events (`hit` / `miss` / `draw` / `ranged`). |
-| `src/world/world.js` | The streets and the sections: navigation, the street list, the **street completion rule**. |
-| `src/world/section.js` | The runtime of one section: background, walls, the hostiles, the walkable spots; the enter pipeline. `solids(fighting)` adds the **invisible barriers of the visible area** while a boss fight is on. |
-| `src/world/entity-hues.js` | The hue plan of the hostiles of a section: the first hostile of a type keeps the original colors, every further copy takes one of the random hues of the game. |
-| `src/render/sprite-sheet.js` | Fixed square frames in rows; one row = one animation. It can bake a hue shift into the sheet. |
-| `src/render/hue.js` | The hue shift of a drawn image: the pixels are rotated once, when the image is loaded (the sprites and the HUD icons). |
-| `src/render/hud.js` | HUD overlay on the canvas: hearts, coins, item rows (left) and one row of hearts per hostile in fight mode in the **top-right corner** (the row of a hostile carries its hue shift). The **mission logs are not on the canvas** — `drawMissionLogs()` writes them into the `#missionLogs` element **above the game area**. |
-| `src/render/blood.js` | Procedural blood: every landed blow sprays 3x3 px red squares that arc down and land on the struck character's feet line. |
-| `src/render/vomit.js` | The ranged burst of a `ranged` character (the boss's green vomit). |
-| `src/audio/audio.js` | Convention-based sound playback. It only **plays** the track names that `asset-conventions.js` builds; every file is optional. |
-| `src/input/keyboard.js` | Held keys + one-shot `consumePress`, by `e.code`. |
-| `data/characters/*.json` | Character configs (see the schema below). |
-| `data/streets/*.json` | Street/section definitions (see the schema below). |
-| `assets/bg/`, `assets/sprites/`, `assets/sounds/`, `assets/hud/` | The assets (see the asset conventions). |
+| [FEATURES.md](FEATURES.md) | **What the game contains** — every implemented feature, the world data, the assets and the changelog. |
+| [PLAN.md](PLAN.md) | **The checklist** of what is done and the **Todo** table for what comes next. |
+| AGENTS.md (this file) | **How the code is built**: the architecture, the conventions, the config reference and the traps. |
 
-### The dependency rule
+## Before you touch anything
+
+- **Run it**: serve the repo root and open `index.html` — `python -m http.server 8000` from the repo root, then <http://127.0.0.1:8000/index.html>. The game `fetch`es the JSON, so `file://` will not work.
+- **Verify it in the browser.** There is no test suite and none is planned: a change is verified by playing it (walk, punch, enter the shop, fight the boss, reach the end screen). The scripted playthrough (boot → shop → thugs → section 2 → the boss → section 3 → the entrance → the victory screen, plus the defeat and the restart) is the regression check for a big change — run it before and after and compare the state.
+- **Do not add a build step, a bundler, a framework, a test runner or a linter.** The game is served as it is.
+- **The canvas is fixed at 1600×800** — `index.html` and `src/world/layout.js` must agree.
+
+## The architecture
+
+### The layers and the dependency rule
 
 - `src/domain/` is **pure**: no `document`, no `window`, no `Image`, no `Audio`, no `fetch`, no canvas. It receives what it needs (the sprite sheet is injected into the actors; the sounds are played by the app layer).
 - `src/domain/content/` is the **only** layer that knows the JSON files exist. Everything else works with the normalized models.
 - `src/app/` and `src/world/` know everything; `src/render/`, `src/audio/` and `src/input/` are adapters.
+- **The vocabulary lives with the model it describes**: the condition fields and the effect types are in `src/domain/quest/trigger-vocabulary.js`, the AI behaviours in `src/domain/actors/behavior.js`. The config schema (the adapter that reads the JSON) validates against those lists — the model never imports the schema.
 
-## Conventions (follow these, don't invent new ones)
+### The file map
 
-- **Sprite sheets**: 150x150 px frames ("initially, all frames are 150x150px"), one animation per row. Row 0 = walk (8 frames). **Each move/attack = its own row of 4 frames**. Walk 80 ms/frame, punch 17.5 ms/frame. `facing = -1` mirrors horizontally. A sheet may also carry a **death row** (`deathRow` + `deathFrames` in the character config, default 4 frames) played on defeat while the body slides a little back (opposite the facing) — e.g. `lysy-blokers` row 2 (4 frames), `zul-mietek` row 2 (4 frames), **Rudy's `rudy_dres` row 2 uses all 8 frames** (owner 2026-10-15). The end screen waits for the fall to finish before freezing the scene. Sheets without a death row fall back to a rotated placeholder pose.
-- **Moves are data-configured**: a character's config maps input keys → sprite rows (`{ key, row, type: punch|kick|headbutt|vomit }`), never hardcoded per character (`data/characters/*.json`, normalized by `character-schema.js`). A move with `"alternate": true` switches between the row's two 4-frame groups on **every other attack** (e.g. Rudy's punch: frames 0–3 right hand, 4–7 left hand); without it the animation is always the same. The boss's combined ranged move is explicitly `type: vomit`, excluded from melee RPS — a character with a `vomit` move is a **ranged** character (`attackKind: "ranged"`), it spits instead of trading blows.
-- **Combat is universal**: the same combat logic serves Rudy, standard NPCs and bosses — they differ only in their parameters (stats, attack set) and their `behavior`.
-- **Combat timing** (P1.1/P1.2, verified 2026-10-18): hits resolve at **full extension**, in finish-time order. Already-started opposing melee attacks finishing within **100 ms inclusive** use headbutt > punch > kick > headbutt, without delaying single strikes; a later winner still must finish and reach its target. Equal move types favor the earlier finish; identical finish times draw. Jump/retreat can interrupt Rudy's windup immediately; an airborne target dodges melee/vomit. Evasions are not buffered and cannot undo damage already taken. **The retreat was removed on 2026-10-19** (↓ does nothing now) — the jump is the only evasion. **1 damage per hit**, interrupting the defender's blow; recovery is per character (`recoveryMs`).
-- **Hit knockback** (P1.5): landed melee hits move their target away from the source by `HIT_KNOCKBACK_PX` = **100 px** (`src/domain/combat/combat.js`), clipped flush to solids/street-end walls. **Ranged attacks such as vomit do not apply knockback or use this constant** (owner 2026-10-18). Misses and RPS draws do not push; lethal melee hits persist the displaced corpse position. The existing death-animation slide is separate.
-- **No XP, no leveling**: progression and items are tied to missions; each mission gives a slight stat boost (planned).
-- **Audio layering**: street ambient → section music (overrides ambient) → boss music (overrides section music). The highest active layer wins.
-- **Art and audio are produced by the owner**: frame-by-frame 2D sprites (following the sprite-sheet convention), sound effects and music. Code selects assets by naming convention only and must never depend on specific asset content.
-- **Hitbox**: feet area of the 150x150 frame, defined per character config — `{ x: 55, y: 120, w: 20, h: 25 }` for Rudy and `lysy-blokers` (**20 px wide**), `w: 40` for `zul-mietek`; combat measures hitbox-edge to hitbox-edge, see `combat.js`.
-- **Blood VFX** (`src/render/blood.js`, owner 2026-10-14): every landed blow sprays 3x3 px red squares out of the struck character (player and enemies alike); they fly away from the blow, arc down and land on the ground line (the struck character's feet), staining it until the section is left — transient, like the hostiles. An attacker can switch bleeding OFF (`"bloodOnTarget": false` in its character config): `zul-mietek` never makes the player bleed (owner 2026-10-15) — the player still bleeds zul with every landed punch.
-- **Boss ranged attack** (`src/render/vomit.js`, owner 2026-10-15): ONE combined attack — the boss plays its attack animation and at full extension a burst of green vomit (5x5 px squares, 40 per burst, **twice as slow** since 2026-10-15) flies out; there is no separate melee blow. The burst hurts the player (1 damage) within about **300 px** of the mouth and the squares land on the ground at about **600 px** (both doubled by the owner on 2026-10-15), staining it until the section is left. Vomit never draws blood — the green squares are the whole effect. **Jumping over the spray dodges it** (owner 2026-10-15): a player in the air is not hit.
-- **Delta time is milliseconds** throughout.
-- **Persistent vs transient**: the mission/flags/inventory/money/stats live in the `Session` and survive section changes (the mission is replaced when the next street starts); the hostiles live in the `Section` and are rebuilt from JSON on every `enter()` — but their **state is persisted** in the session (`hostileStates`, keyed `<street>/<section>/<role>/<id>#<slot>` → where the hostile stands and whether it lies dead), so a **living** hostile is still where the player left it and a **dead** one still lies where it fell. The **role** is the list the entity comes from (`enemies` / `bosses`) and the **slot** is its place in that list: two entities that share an id (e.g. two `lysy-blokers`) keep their own body, and the same id in two sections keeps its own place.
-- **One trigger model everywhere** (sections, interactions and, later, the entities): a list of `{ "when": <condition>, "stay": <ms>, "effects": [...] }`. The **first** trigger whose condition holds wins; a trigger without a condition is the fallback and belongs last.
-- **Duplicates look different**: two hostiles of the same type in the same section share one sprite sheet, so **the first hostile of a type keeps the original colors** and every further copy of that type takes one of the **random hues of the game** (`src/world/entity-hues.js` picks them from the session's **hue pool** — the hues are at least 45° away from the original colors and from each other). The shift is baked into the sheet's pixels when it is loaded (`src/render/hue.js`) and the **HUD tints the hostile's heart row with the same shift**, so the row belongs to the hostile of that color. The hue pool is **drawn anew for every game** (`session.huePool`, re-drawn by `resetForNewGame`) and stays for the whole playthrough: the street looks different in every game, but a hostile keeps its colors within one (a corpse keeps the colors of the enemy that fell).
-- Errors and code comments are English; user-facing strings and error `throw`s are Polish.
+**The page and the composition root**
 
-## Street JSON schema (v2) — `data/streets/<number>-<name>.json`
+| File | Responsibility |
+|---|---|
+| `index.html` | The page shell: the canvas and the **mission log element above the game area** (`#missionLogs`). |
+| `src/main.js` | **The composition root**: wires the `ContentRepository`, the `Session`, the `World`, the `Player`, the `Keyboard`, the `Game` and the screens and starts the loop. `startFreshGame()` is both the boot path and the restart from the end screen (there are no saves); it leaves the old section **before** the session reset, so the state of the hostiles is wiped with it. It also exports `game`, `session` and `world` so the running game can be inspected from the outside. |
+
+**`src/app/` — the screens and the loop**
+
+| File | Responsibility |
+|---|---|
+| `game.js` | The rAF loop with delta time (ms) and the screen switch (`changeState`). The loop is bound once. |
+| `play-screen.js` | The gameplay screen: the input, the section transitions, the combat, the boss trigger, the street completion and the drawing. A **boss fight locks the player on his section** and the **invisible barriers of the visible area** hold the player and the hostiles inside the screen. It ends the street when `world.isStreetComplete()` is true and ends the game on the last street. |
+| `end-screen.js` | The shared end screen (defeat / victory): the frozen scene, the 2/3-screen panel, the statistics, the restart button (click or Enter → a fresh game — **Space does NOT restart**), `game-over` on defeat / `<street>-congratulations` on victory, each played once. |
+| `walkable-interaction.js` | The scripted sequence of a walkable spot: walk in → hidden for the trigger's `stay` → walk out. The exchange (the mission, the item, the price) happens **300 ms** before Rudy leaves the spot. The player has no control while it runs. The way Rudy looks while he walks in follows the side of the screen the spot is on. When the exchange ends the street, Rudy **stays inside**. |
+| `combat-feedback.js` | What the combat events look and sound like: the attack sounds and the blood. The one place that turns the events of the arbitration into the effects. |
+
+**`src/domain/` — the pure model**
+
+| File | Responsibility |
+|---|---|
+| `content/asset-conventions.js` | **The one and only place where an asset path or a sound track name is built** — every naming rule of the game, in one file. |
+| `content/character-schema.js` | `data/characters/<type>.json` → the **Character** model (normalization + validation, Polish errors). |
+| `content/street-schema.js` | `data/streets/<street>.json` → the **Street** model (schema **v2**). |
+| `content/content-repository.js` | File access + caching. **The only module in the domain that may call `fetch`**. |
+| `quest/mission.js` | The mission of the current street: the stages and their log lines (`advanceTo` sets the stage — absolute, not a transition map). |
+| `quest/trigger-vocabulary.js` | The condition fields and the effect types — the contract between the schema and the engine. |
+| `quest/triggers.js` | The unified trigger model: `matchesCondition`, `applyEffects`, `selectTrigger`. Every condition field and every effect type is **one entry of a registry**. |
+| `quest/hostile-states.js` | The store of the hostile states: where a hostile stands and whether it lies dead. It owns the **identity** of a hostile and the key built from it. |
+| `quest/session.js` | The session aggregate: the mission, the items, the money, the flags, the stats, the play timer and the state of the hostiles. |
+| `actors/actor.js` | The base actor: position, hitbox, row-based animation, HP/defeat. The sprite sheet is **injected**. `advance(dt)` is the shared animation step; `update(dt, env)` is the uniform step of every actor. |
+| `actors/hitbox.js` | The collision box of an actor in world coordinates — **one place** for the rectangle arithmetic the combat, the knockback and the AI all use. |
+| `actors/behavior.js` | The AI behaviours of the hostiles (**Strategy**): `patrol` and `sentry` are strategy objects. A new behaviour is a new object here — the `Enemy` class does not change. |
+| `actors/player.js` | Rudy: the arrow keys, the jump, the queued punches, the debug speed multiplier, the `hidden` state of the walkable interaction. |
+| `actors/enemy.js` | **ONE class for every hostile**: the movement, the fight trigger, the ranged attack. The **behaviour** is a strategy. |
+| `combat/combat.js` | The strike rules (pure): reach, the RPS arbitration, 1 damage, the knockback, the knockback direction. It returns the outcome — it plays no sound. |
+| `combat/arena.js` | The chronological arbitration (pure): it returns the events (`hit` / `miss` / `draw` / `ranged`). |
+
+**`src/world/` — the streets and the sections**
+
+| File | Responsibility |
+|---|---|
+| `world.js` | The streets and the sections: navigation, the street list, the **street completion rule**. It also owns the **trigger context** — there is exactly one builder of it (`context()`). |
+| `section.js` | The runtime of one section: background, walls, the hostiles, the walkable spots; the enter pipeline. `solids(fighting)` adds the **invisible barriers of the visible area** while a boss fight is on. |
+| `entity-hues.js` | The hue plan of the hostiles of a section: the first hostile of a type keeps the original colors, every further copy takes one of the random hues of the game. |
+| `layout.js` | The geometry of the world: the canvas size, the ground line, the walls, the entry points. |
+
+**`src/render/`, `src/audio/`, `src/input/` — the adapters**
+
+| File | Responsibility |
+|---|---|
+| `render/sprite-sheet.js` | Fixed square frames in rows; one row = one animation. It can bake a hue shift into the sheet. |
+| `render/hue.js` | The hue shift of a drawn image: the pixels are rotated once, when the image is loaded. |
+| `render/image-cache.js` | The shared cache of the loaded images (the HUD icons and the section overlays). |
+| `render/hud.js` | The HUD overlay: hearts, coins, item rows (left) and one row of hearts per hostile in fight mode (top-right). `drawMissionLogs()` writes the mission logs into the `#missionLogs` element **above the game area**. |
+| `render/overlays.js` | The background overlays of a section: the "back" ones with the scenery, the "front" ones over the characters. |
+| `render/particles.js` | The shared particle field: little squares that fly out, arc down and land on a ground line. |
+| `render/blood.js` | The blood spray of a landed blow. |
+| `render/vomit.js` | The ranged burst of a `ranged` character (the boss's green spit). |
+| `audio/audio.js` | Convention-based sound playback. It only **plays** the track names that `asset-conventions.js` builds; every file is optional. |
+| `input/keyboard.js` | Held keys and one-shot `consumePress`, by `e.code`. |
+
+## The rules to follow
+
+- **One vocabulary, one builder**: a name that both the config and the engine must know (a condition field, an effect type, an AI behaviour) is declared **once**, in the model; the schema imports it. The same goes for the **trigger context** — `World.context()` is the only builder of it, so the sections, the entities and the play screen all read the same world.
+- **A registry instead of a growing if-chain**: a set of variants (the conditions, the effects, the behaviours) is a table of small objects, one entry per variant. A new variant is a new entry — not a new branch in a shared function.
+- **One place for the arithmetic**: a formula that more than one module needs (the hitbox rectangle, the knockback direction, the particle physics, the world geometry, the image cache) lives in one module and is imported by the others.
+- **Every actor is stepped the same way**: `update(dt, env)`, where `env` carries the world around it (`keyboard`, `solids`, `target`). `Actor.advance(dt)` is the shared animation step. The subclasses add their own input handling; the callers do not need to know the type.
+- **A hostile is addressed by its identity, not by five arguments**: `{streetId, section, role, id, slot}` — the state store builds its key from it.
+- **The domain stays pure**: no DOM, no `Audio`, no `fetch` in `src/domain/`. Inject what is needed instead.
+- **The asset paths are built only in `asset-conventions.js`** — never assemble one by hand.
+- **Errors and code comments are English; user-facing strings and error `throw`s are Polish.**
+- **The content is data**: a new section, a new street, a new hostile or a new move is a JSON edit, not a code change.
+
+## The world model as the code implements it
+
+- A **street** is a JSON file (`data/streets/<number>-<name>.json`); its **sections** are placed from left to right and can be traversed back and forth — the section list in the config *is* the street. There is **no route**. The streets are played one after another in file-name order and the game ends after the last one.
+- **No continuous scrolling**: each section is a **static background screen** with a flat street strip at the bottom where the characters move; the screen switches when the player reaches a section edge. At the **ends of the street the boundary blocks Rudy and he walks in place**.
+- **Entering a section** (`Section.enter()` in `src/world/section.js`), in this order: 1. load the background → 2. build the walls → 3. apply the section's `onEnter` triggers (the mission may move on) → 4. spawn the hostiles (`enemies` + `bosses`) → 5. load the walkable interactions. The triggers run first, so what is in the world matches the state the player just walked into.
+- **Leaving a section**: the hostiles are rebuilt from the config on the next entry, but their **state is persisted in the session** — a living hostile stands where the player left it, a defeated one still lies where it fell. A body stays on the street **even when its `presentWhen` no longer holds**.
+- **The mission**: every street has one main mission — the `mission` field, an array of log lines where the index is the stage. The stage moves on through the **effects** of the config's triggers (`{"mission": 2}` sets the stage). A **defeated boss advances the stage by one**; it does not end the street.
+- **When a street ends**: the mission has been advanced **PAST its last stage** (a stage with no log line of its own — that is how a config ends a street) *and* **no boss of the street is still standing**. A boss that is not present any more does not block the street.
+- **A boss fight locks the player on his section** — he cannot walk into the neighbouring one until the boss is down, and the invisible barriers of the visible area hold the player and the hostiles inside the screen. The boss's death gives the street ambience back.
+- **Persistent vs transient**: the mission, the flags, the inventory, the money and the stats live in the `Session` and survive a section change; the hostiles live in the `Section` and are rebuilt on every `enter()` — their state is persisted in the session (`hostileStates`, keyed `<street>/<section>/<role>/<id>#<slot>`). The **HP of a hostile is not persisted** — a wounded one comes back at full HP.
+- **There is no save system** (session-only play). Rudy's defeat — like winning — shows the shared end screen with the statistics and a restart button.
+
+## The config reference
+
+### The street JSON (schema v2) — `data/streets/<number>-<name>.json`
 
 One file per street; the file name (without `.json`) is the street id used by every asset convention. **The old v1 shape is gone** (`trigger`, `highlight`, `give`/`cost`, the `mission` transition maps `{"0": 1}`, the single `boss` object): a config with an unknown key is **refused** with a Polish error naming the file and the JSON path — no silent misreads.
-
-A complete, valid example (this is the shape of `data/streets/01-narutowicza.json`):
-
-```jsonc
-{
-  "name": "Narutowicza",
-  "mission": ["Kup piwo", "Znajdź ustronne miejsce aby wypić piwo", "Pokonaj żula", "Wypij piwo"],
-  "sections": [
-    {
-      "name": "Zielona 3",
-      "overlays": [
-        { "x": 158, "y": 288, "when": { "position": [400, 500] } }
-      ],
-      "interactions": [
-        {
-          "id": "sklep",
-          "type": "walkable",
-          "x1": 400,
-          "x2": 500,
-          "triggers": [
-            {
-              "when": { "mission": [0] },
-              "stay": 3000,
-              "effects": [ { "mission": 1 }, { "item": "beer" }, { "money": -1 } ]
-            },
-            { "stay": 1000 }
-          ]
-        }
-      ],
-      "enemies": [
-        {
-          "id": "lysy-blokers",
-          "type": "lysy-blokers",
-          "x": 1450,
-          "y": 598,
-          "fight": { "type": "distance", "distance": 300 }
-        }
-      ]
-    },
-    {
-      "name": "Narutowicza 6",
-      "onEnter": [
-        { "when": { "mission": [1] }, "effects": [ { "mission": 2 } ] }
-      ],
-      "overlays": [
-        { "x": 1427, "y": 573, "when": { "mission": [0] } }
-      ],
-      "bosses": [
-        {
-          "id": "zul-mietek",
-          "type": "zul-mietek",
-          "x": 1450,
-          "y": 598,
-          "fight": { "type": "always" },
-          "presentWhen": { "mission": [1, 2] }
-        }
-      ]
-    },
-    {
-      "name": "Narutowicza 14",
-      "overlays": [
-        { "x": 1069, "y": 319, "position": "front" },
-        { "x": 1088, "y": 288, "when": { "mission": [3], "position": [1254, 1400] } }
-      ],
-      "interactions": [
-        {
-          "id": "wschodnia",
-          "type": "walkable",
-          "x1": 1254,
-          "x2": 1400,
-          "when": { "mission": [3] },
-          "triggers": [
-            {
-              "when": { "mission": [3] },
-              "stay": 3000,
-              "effects": [ { "mission": 4 }, { "item": "beer", "count": -1 } ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-### The keys
 
 | Level | Keys |
 |---|---|
@@ -191,12 +132,13 @@ A complete, valid example (this is the shape of `data/streets/01-narutowicza.jso
 
 - The **role** (enemy / boss) comes from the list the entity is in — there is no `role` key in the config.
 - `presentWhen` — the entity exists in the world only while the condition holds.
-- The **overlay `position`**: `"back"` (the default) is drawn with the background, `"front"` is drawn **over the player and the enemies** — a street light standing in the foreground.
+- The **overlay `position`**: `"back"` is drawn with the background, `"front"` is drawn **over the player and the enemies** — a street light standing in the foreground.
 - The **interaction `when`**: while the condition does not hold, the spot is **not interactive at all** — the player walks over it and ↑ jumps as usual.
-- A **type without a character config is not an error** — the spawn skips it (`rat`, `thug`).
+- A **type without a character config is not an error** — the spawn skips it.
 - `sections` are 1-based: the section number is the one in the asset names.
+- The living example is `data/streets/01-narutowicza.json` — copy its shape.
 
-### The conditions (`when`)
+#### The conditions (`when`)
 
 All the fields are optional; **all the fields that are present must hold**.
 
@@ -209,7 +151,7 @@ All the fields are optional; **all the fields that are present must hold**.
 | `defeated: ["id", "id#slot"]` | these entities are defeated **in the current street** (`"id"` = any slot, `"id#slot"` = that one) |
 | `position: [400, 500]` | the player's x is within `[x1, x2]` (inclusive) |
 
-### The effects
+#### The effects
 
 | Effect | Meaning |
 |---|---|
@@ -218,9 +160,9 @@ All the fields are optional; **all the fields that are present must hold**.
 | `{ "money": -1 }` | change the purse (a negative amount spends) |
 | `{ "flag": "name", "value": true }` | set a world flag |
 
-## Character config — `data/characters/<type>.json`
+### The character config — `data/characters/<type>.json`
 
-The file name is the character's **type**; the `name` field is the character name — it is the **sound prefix** (`player-attack-hit`) and the default sprite name; `sprite` overrides the sprite-sheet name (`player` → `rudy_dres`). Unchanged in shape, plus one new field.
+The file name is the character's **type**; the `name` field is the character name — it is the **sound prefix** (`player-attack-hit`) and the default sprite name; `sprite` overrides the sprite-sheet name (`player` → `rudy_dres`).
 
 | Field | Meaning |
 |---|---|
@@ -232,30 +174,14 @@ The file name is the character's **type**; the `name` field is the character nam
 | `hitbox` | `{ x, y, w, h }` — the feet box of the 150x150 frame |
 | `deathRow` / `deathFrames` | the fall animation (row + frame count) |
 | `bloodOnTarget` | `false` = this character's blows do not make the target bleed |
-| **`behavior`** | **`"patrol"`** (the default: it walks its stretch until the fight) or **`"sentry"`** (it stands still, untouchable, until the fight starts — `zul-mietek` is a sentry) |
-| `moves` | `[{ key, row, type, alternate }]` — `key` is null for the AI-driven moves |
+| `behavior` | `"patrol"` (the default: it walks its stretch until the fight) or `"sentry"` (it stands still, untouchable, until the fight starts) |
+| `moves` | `[{ key, row, type, alternate }]` — `key` is null for the AI-driven moves; `type` is `punch` / `kick` / `headbutt` / `vomit` |
 | `jumpKey` / `jumpDurationMs` / `jumpHeightPx` | the jump of the player |
-| **`attackKind`** | **derived, not in the file**: `"ranged"` when any move has `type: "vomit"`, otherwise `"melee"` |
+| `attackKind` | **derived, not in the file**: `"ranged"` when any move has `type: "vomit"`, otherwise `"melee"` |
 
-Example (`data/characters/lysy-blokers.json`):
+**The sprite-sheet convention**: 150×150 px frames, one animation per row. Row 0 = the walk cycle (8 frames). **Each move is its own row of 4 frames**; `"alternate": true` uses the row's two 4-frame groups and switches on every other attack (Rudy's punch: frames 0–3 the right hand, 4–7 the left). A sheet may also carry a **death row** (`deathRow` + `deathFrames`, default 4) played on defeat while the body slides a little back. `facing = -1` mirrors horizontally.
 
-```jsonc
-{
-  "name": "lysy-blokers",
-  "sprite": "lysy-blokers",
-  "hp": 9,
-  "walkSpeed": 100,
-  "walkFrameMs": 80,
-  "attackFrameMs": 75,
-  "attackHoldMs": 500,
-  "recoveryMs": 700,
-  "deathRow": 2,
-  "hitbox": { "x": 55, "y": 120, "w": 20, "h": 25 },
-  "moves": [ { "row": 1, "type": "headbutt" } ]
-}
-```
-
-## Asset conventions
+## The asset conventions
 
 Every path and every track name is built by `src/domain/content/asset-conventions.js` — **never assemble one by hand**.
 
@@ -272,45 +198,76 @@ Every path and every track name is built by `src/domain/content/asset-convention
 | `assets/sounds/<who>-attack-hit.mp3` / `<who>-attack-miss.mp3` | the outcome of a blow |
 | `assets/sounds/<who>-jump.mp3` | the jump (e.g. `player-jump.mp3`) |
 | `assets/sounds/<street>-<n>-ambient.mp3` | the looping ambience of a section |
-| `assets/sounds/ambience.mp3` | the default street ambience (fallback) |
+| `assets/sounds/ambience.mp3` | the default street ambience (the fallback) |
 | `assets/sounds/<street>-boss-music.mp3` | the fight music of a street (loop) |
 | `assets/sounds/<street>-boss-intro.mp3` | the boss's introduction sentence (once, on top of the music) |
 | `assets/sounds/<street>-<interaction>-<index>.mp3` | the sound of a walkable interaction (the trigger index) |
 | `assets/sounds/<street>-congratulations.mp3` | the victory jingle (once) |
 | `assets/sounds/game-over.mp3` | the death music (once) |
 
-**Every audio file is optional — a missing file means silence.** The ambience starts **automatically at boot** (owner 2026-10-15): plain `play()`, then a muted start that unmutes once running (browsers block audible playback before the first gesture), then the first key press/click as the last resort.
+**Every audio file is optional — a missing file means silence.** Only the assets named explicitly in a JSON file (e.g. the section background) report an error. The ambience starts **automatically at boot**: plain `play()`, then a muted start that unmutes once running (browsers block audible playback before the first gesture), then the first key press or click as the last resort.
 
-## Content pipeline (goal)
+## The numbers of the game
 
-Ultimately the game must be **configurable via files**: sections, enemies, NPCs and missions are defined in configuration files, and assets are selected based on **naming conventions**. The architecture must make expansion easy — adding more sections and streets later is expected to be routine.
+Change these only deliberately — the timings are what the game feels like.
 
-- **New section** = background photo + a section entry in the street JSON + characters + triggers + audio = new section (pure file work, no code changes).
-- **New street** = a new file `data/streets/<number>-<name>.json` (+ its assets). The game finds the streets by name and plays them one after another — no code change, no registration.
+| Constant | Value | Where |
+|---|---|---|
+| the canvas | 1600×800 | `src/world/layout.js` (+ `index.html`) |
+| the ground line | y = 598 | `src/world/layout.js` |
+| the entry points | x = 50 (left) / x = 1450 (right) | `src/world/layout.js` |
+| the street-end wall | 40 px | `src/world/layout.js` |
+| the walk cycle | 80 ms per frame, 8 frames | the character config / `asset-conventions.js` |
+| the punch | 17.5 ms per frame, 4 frames per move | the character config |
+| the strike reach | 80 px (hitbox edge to hitbox edge) | `src/domain/combat/combat.js` |
+| the RPS tie window | 100 ms inclusive | `src/domain/combat/combat.js` |
+| the damage | 1 per blow | `src/domain/combat/combat.js` |
+| the hit knockback | 100 px (melee only — never the vomit) | `src/domain/combat/combat.js` |
+| the recovery | per character (`recoveryMs`); the player has none | the character config |
+| the hitbox | `{ x: 55, y: 120, w: 20, h: 25 }` (`w: 40` for the boss) | the character config |
+| the walkable sequence | 1000 ms in, the trigger's `stay`, 1000 ms out, the exchange 300 ms before the exit | `src/app/walkable-interaction.js` |
+| the blood | 3×3 px squares, 12 per blow | `src/render/blood.js` |
+| the spit | 5×5 px squares, 40 per burst, hits within 300 px, lands at 600 px | `src/render/vomit.js` |
+| the hue distance | at least 45° from the original colors and from each other | `src/world/entity-hues.js` |
+| the hue pool | 48 hues, drawn anew for every game | `src/domain/quest/session.js` |
+| the debug speed | ×4 while Shift is held | `src/domain/actors/player.js` |
 
-## Controls
+## The controls
 
-Desktop keyboard; the move and `jumpKey` mappings live in the character config. Current defaults:
+Desktop keyboard. The move and the jump keys live in the character config.
 
-- ← / →: walk (keeps walking in place when blocked); Space: punch (stands still while attacking, alternating hands); ↑: jump (walk cycle plays in the air; **holding ↑ keeps hopping**; plays `player-jump.mp3`; side arrows stay live mid-jump) — **except** at a walkable spot, where ↑ enters the interaction instead (Rudy walks in, disappears for the trigger's `stay` and walks back out; the overlay stays visible through the whole sequence).
-- **Debug**: holding **Shift** (either one) moves Rudy **4× faster** while walking — including the mid-jump drift (`DEBUG_SPEED_MULTIPLIER` in `src/domain/actors/player.js`).
-- ↓: **does nothing** — the backward step (the "retreat"/moonwalk) was removed by the owner on 2026-10-19; the jump is the only evasion. The key is still swallowed so the page does not scroll.
+- ← / →: walk (he keeps walking in place when blocked).
+- Space: punch (he stands still while attacking, alternating hands).
+- ↑: jump (the walk cycle plays in the air; holding ↑ keeps hopping) — **except** at a walkable spot, where ↑ enters the interaction instead.
+- ↓: **does nothing** — the backward step (the "moonwalk") was removed by the owner on 2026-10-19; the jump is the only evasion. The key is still swallowed so the page does not scroll.
+- Shift (either one): a debug run — 4× faster while walking.
+- On the end screen: click the button or press **Enter** to restart (Space does not).
 
-## Current status (2026-10-21)
+## Where the behaviour lives
 
-**The game was restructured into explicit layers (the DDD refactor) and the street/mission configuration was migrated to the new schema (v2).** The old `src/game/`, `src/actors/`, `src/save/` and the old `State` are gone: the code lives in `src/app/`, `src/domain/`, `src/world/`, `src/render/`, `src/audio/` and `src/input/`, and the state that survives a screen change is the `Session`. **The gameplay behaviour did not change** — the same mechanics, the same timings, the same sounds, the same assets.
+The fastest way into the code. FEATURES.md describes *what* each of these does; this table says *where*.
 
-Working (verified in the browser before and after the refactor):
-- **The street sequence**: the game finds the street files in `data/streets/` (by name — the directory listing, or the optional manifest `streets.json`) and plays them one after another — `01-narutowicza` today; the game ends when the **last** street is finished. A finished street hands over to the next one (the mission is replaced, the player starts at the beginning of the new street, the HP/money carry over).
-- **The mission from the config**: `mission: ["Kup piwo", "Znajdź ustronne miejsce aby wypić piwo", "Pokonaj żula", "Wypij piwo"]` — the index is the stage. Row 1 of the HUD always shows `mission[0]`, row 2 the current objective (once the mission moved on). The stage moves on through the **effects** of the config: the shop (`{"mission": 1}`), the section (`onEnter` → `{"mission": 2}`) and the **defeated boss** (→ the next stage) — verified: shop → stage 1 ("Znajdź ustronne miejsce…"), entering "Narutowicza 6" → stage 2 ("Pokonaj żula"), the boss's fall → stage 3 ("Wypij piwo").
-- **The walkable shop**: the stretch `x1`…`x2` of the section; ↑ walks Rudy in, the sound `assets/sounds/01-narutowicza-sklep-0.mp3` plays when he disappears, Rudy stays hidden for the trigger's `stay` (3000 ms on stage 0, 1000 ms on the later stages) and walks back out; the **exchange** (the mission, the beer, the price) happens **300 ms** before he leaves. The overlay `assets/bg/01-narutowicza-1-1.png` is shown while the player stands in the spot.
-- **The sections**: a chain, no route — the player walks into the neighbouring section and back; the ends of the street are walled by convention (the first section a left wall, the last one a right wall). Section backgrounds: `assets/bg/01-narutowicza-<n>.png`.
-- **The hostiles**: the fight trigger comes from the config — `always`, `distance` (the `lysy-blokers` waits until the player is closer than 300 px) or `hit` (peaceful until punched). The boss `zul-mietek` is a **sentry** (`behavior: "sentry"`) and exists only while his `presentWhen` holds (`{ "mission": [1, 2] }`); before that he waits in the background as the `01-narutowicza-2-1.png` pose (a section overlay with `when: { "mission": [0] }`); with the fight on, `<street>-boss-music` loops and `<street>-boss-intro` plays once on top of it.
-- **The street ends** when the **mission is advanced past its last stage** (a stage with no log line of its own) and no boss is standing; the next street follows, and after the last one the victory screen appears. A **defeated boss only advances the mission** by one stage — it does not end the street.
-- **The third section of Narutowicza** (2026-10-21, owner): "Narutowicza 14" with the **street light in the foreground** (`"position": "front"` — drawn over the player and the enemies) and the **walkable spot "wschodnia"** (the entrance). The spot's own `when` (`{ "mission": [3] }`) makes it interactive **only** on stage 3; on the other stages it is no spot at all (↑ jumps as usual). On stage 3 the spot ends the game: its trigger sets the mission to **stage 4** (past the last line → the end of the street) and takes the **beer** away (`{ "item": "beer", "count": -1 }` — the last beer leaves the inventory, so its icon disappears from the HUD). Verified in the browser: the lamp covers Rudy (and the control run with `"back"` shows him covering the lamp), ↑ on stage 0 makes Rudy jump instead of walking in, the boss's fall moves the mission to "Wypij piwo" without ending the game, and the endgame screen ("GRATULACJE! WYGRAŁEŚ GRĘ!") appears after the spot's 3 s stay — with the beer icon gone.
-- **The HUD and the fight (2026-10-21, owner)**: the **mission log sits above the game area** (the `#missionLogs` element of the page, right-aligned to the canvas' right edge) and shows the **objective that is still open** — a finished objective disappears when the next stage is reached ("Kup piwo" is gone once the shop moved the mission on). The **hostiles' HP rows moved into the top-right corner** of the canvas. A **boss fight locks the player on his section** — he cannot walk into the neighbouring one until the boss is down, and the **invisible barriers of the visible area** hold the player *and* the hostiles inside the screen: they are the very same walls the ends of a street have, so everybody stops exactly as at the end of the street (the player at x=1484 / x=-13, the patrolling thug turned around at the left barrier) — nobody walks out of the picture during the fight. The **boss's death gives the street ambience back** (the fight music and the intro sentence stop) and the barriers go with it. After the **last walkable** the player **stays inside the spot** (he does not walk back out) and the end screen appears. A **new game starts with the hostiles at their posts**: the section is left before the session reset, so the saved state of the hostiles is wiped with it (owner 2026-10-21). The **way Rudy looks while he walks into a spot follows the side of the screen the spot is on** (owner 2026-10-22): the shop (left half) is entered facing right, the "wschodnia" spot (right half) facing left; walking out he turns back the way he came. A **body stays on the street even when its `presentWhen` no longer holds** (owner 2026-10-22): the boss keeps his corpse on the street after his stage is over — the same behaviour the other enemies always had.
-- **The duplicates look different** (2026-10-20): the two `lysy-blokers` of the first section are no longer the same sprite — **the first keeps the original colors**, the extra copy gets a **random hue of the game** (at least 45° away from the original colors and from the other copies). The **HP row of a hostile in the HUD carries the same hue**, so the row of hearts belongs to the hostile of that color. The hues are drawn anew for every game and stay for the whole playthrough (a corpse keeps the colors of the enemy that fell). Verified in the browser: the first thug's pixels are the sheet's own (79–82% in the sheet's palette, shift 0), the copy's pixels are exactly the rotated ones, four games in a row gave four different hues, the hue survived a section round trip unchanged, and the heart row of the copy is exactly the rotated heart icon.
-- **The hostiles keep their place** (2026-10-20): the state of every hostile is persisted in the session (`hostileStates`, keyed `<street>/<section>/<role>/<id>#<slot>`), so leaving a section and coming back finds the **living** enemies exactly where the player left them (the position, the facing and the patrol direction — not back at their post) and the **dead** ones still lying where they fell. The key is the hostile's identity: the street, the section, the list it comes from (`enemies` / `bosses`), its label and its place in that list — so the same label in two sections keeps its own place (the old key `<street>/<id>#<slot>` mixed them up). Their **HP is not persisted** — a wounded hostile comes back at full HP. Verified in the browser: the two thugs left section 1 at x=1154/762 came back at x=1154/762 (not 1450/1050), after a knockback they came back at the pushed-back spot, the corpse still lay where it fell, and a corpse re-entered from the session is no longer counted as a new kill.
-- Everything from before still works: the universal combat (P1.1/P1.2/P1.5, knockback **100 px**), the blood VFX and the corpses, the jump, the HUD, the two-row mission log, the pixel font, the shared end screen (`game-over` on defeat, `<street>-congratulations` on victory, played once) and the restart (click or Enter — Space never restarts). **The retreat (↓) was removed on 2026-10-19** — the jump is the only evasion now.
+| Question | File |
+|---|---|
+| How is the game assembled? | `src/main.js` |
+| How does the loop and the screen switch work? | `src/app/game.js` |
+| How does a frame of the gameplay work? | `src/app/play-screen.js` |
+| How does the player move, jump and punch? | `src/domain/actors/player.js` |
+| How does a hostile behave and fight? | `src/domain/actors/enemy.js` + `src/domain/actors/behavior.js` |
+| How is a blow resolved and arbitrated? | `src/domain/combat/combat.js` + `src/domain/combat/arena.js` |
+| How is the geometry of a character computed? | `src/domain/actors/hitbox.js` |
+| How do the conditions and the effects work? | `src/domain/quest/triggers.js` + `src/domain/quest/trigger-vocabulary.js` |
+| Where do the hostiles' positions and corpses live? | `src/domain/quest/hostile-states.js` + `src/domain/quest/session.js` |
+| How does a section load, spawn and unload? | `src/world/section.js` |
+| How does a street end and the mission advance? | `src/world/world.js` + `src/domain/quest/mission.js` |
+| How does a walkable spot work? | `src/app/walkable-interaction.js` |
+| What does the HUD and the mission log draw? | `src/render/hud.js` |
+| How are the overlays drawn? | `src/render/overlays.js` |
+| How do the blood and the spit work? | `src/render/particles.js` + `src/render/blood.js` + `src/render/vomit.js` |
+| How are the sounds played? | `src/audio/audio.js` |
+| How is a config read and validated? | `src/domain/content/street-schema.js`, `character-schema.js`, `content-repository.js` |
+| How is an asset path built? | `src/domain/content/asset-conventions.js` |
 
-Not implemented yet: the **side quests** (the conditions and the effects are expressible in JSON now, but the side quests themselves are not written), the **dialogue** (and the NPC townsfolk), the **audio layering** (ambient → section music → boss music), the **mission stat boosts** (no XP/leveling), the **boss intro cutscene**, the mission-based move unlocks (P1.3), the other enemy types (`rat`, `thug` — skipped until they get character configs) and the collapsible menu. Placeholder art/audio (`zul-mietek.png`, `hud/beer.png`, `*-attack-hit`, `*-boss-intro`, `*-boss-music`, `game-over`) are duplicates awaiting owner assets. Details and tracking in [FEATURES.md](FEATURES.md). Next up: **P1.3 — Move sets & per-character speeds** in [PLAN.md](PLAN.md).
+## Known gaps
+
+What is **not** in the game yet is tracked in the **Todo** table of [PLAN.md](PLAN.md) — that is the one place for it, so it never drifts from the owner's list. Everything that **is** in the game is listed in [FEATURES.md](FEATURES.md).

@@ -49,10 +49,6 @@ export default class SpriteSheet {
         });
     }
 
-    framesIn(row) {
-        return this.rowFrames[row];
-    }
-
     /**
      * Draws one frame with its top-left corner at (x, y).
      * @param {number} facing 1 = normal, -1 = mirrored horizontally.

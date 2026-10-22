@@ -21,9 +21,12 @@
 //     bosses      — the bosses of the section
 //
 // A condition ("when") and an effect are written in a terse JSON form and are
-// normalized here into a tagged union the quest layer understands.
+// normalized here into a tagged union the quest layer understands. The names
+// themselves come from the quest layer's vocabulary — the schema and the
+// engine must agree on them.
 
-const CONDITION_KEYS = ['mission', 'flags', 'items', 'money', 'defeated', 'position'];
+import { CONDITION_KEYS, EFFECT_TYPES } from '../quest/trigger-vocabulary.js';
+
 const FIGHT_TYPES = ['always', 'distance', 'hit'];
 const INTERACTION_TYPES = ['walkable'];
 
@@ -43,8 +46,8 @@ const ENTITY_KEYS = ['id', 'type', 'x', 'y', 'fight', 'presentWhen'];
 const FIGHT_KEYS = ['type', 'distance'];
 
 // The terse effect forms: {"mission": 2}, {"item": "beer", "count": 1},
-// {"money": -1}, {"flag": "x", "value": true}.
-const EFFECT_TYPES = ['mission', 'item', 'money', 'flag'];
+// {"money": -1}, {"flag": "x", "value": true}. The types themselves come from
+// the quest layer's vocabulary — the schema and the engine must agree.
 const EFFECT_KEYS = {
     mission: ['mission'],
     item: ['item', 'count'],

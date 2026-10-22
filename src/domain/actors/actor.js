@@ -21,14 +21,17 @@
 // An attack runs from startAttack() until endAttack(). It plays to the last
 // frame of the move's group and then holds there (the "full stretch" where the
 // hit is resolved); the caller decides when to end it.
+//
+// The frame of an actor is advanced by advance(dt) — the shared animation
+// step. The subclasses add their own input handling in update(dt, env); the
+// signature is the same for every actor, so any actor can be stepped the same
+// way (see env in Player and Enemy).
 
 import { ATTACK_COOLDOWN_MS, HIT_KNOCKBACK_PX } from '../combat/combat.js';
-import { FRAME_SIZE } from '../content/asset-conventions.js';
+import { FRAME_SIZE, WALK_FRAMES, ATTACK_FRAMES } from '../content/asset-conventions.js';
+import { hitboxRect } from './hitbox.js';
 
 export const ROW_WALK = 0;
-
-const WALK_FRAMES = 8;
-const ATTACK_FRAMES = 4;
 
 // Death: the fall plays on the character's death row while the body slides a
 // little back (opposite the facing). The row has `deathFrames` frames (default
@@ -175,10 +178,7 @@ export default class Actor {
 
     /** Sweeps the configured knockback distance without crossing a solid or a street-end wall. */
     _knockBack(direction, solids) {
-        const left = this.x + this.hitbox.x;
-        const right = left + this.hitbox.w;
-        const top = this.y + this.hitbox.y;
-        const bottom = top + this.hitbox.h;
+        const { left, right, top, bottom } = hitboxRect(this);
         let dx = Math.sign(direction) * HIT_KNOCKBACK_PX;
         for (const solid of solids) {
             if (bottom <= solid.y || top >= solid.y + solid.h) continue;
@@ -193,7 +193,7 @@ export default class Actor {
      * an attack plays to its last frame and then holds.
      * @param {number} dt Delta time in ms.
      */
-    update(dt) {
+    advance(dt) {
         if (this.defeated) {
             this._updateDeath(dt);
             return;
@@ -208,6 +208,16 @@ export default class Actor {
             this.frameTimer -= this.walkFrameMs;
             this.frame = (this.frame + 1) % this.walkFrames;
         }
+    }
+
+    /**
+     * Steps the actor by one frame. The base implementation only advances the
+     * animation; the subclasses read their input from `env`.
+     * @param {number} dt Delta time in ms.
+     * @param {object} env The world around the actor: { keyboard, solids, target }.
+     */
+    update(dt, env = {}) {
+        this.advance(dt);
     }
 
     _updateAttack(dt) {
@@ -271,10 +281,7 @@ export default class Actor {
     }
 
     _collides(x, y, solids) {
-        const left = x + this.hitbox.x;
-        const top = y + this.hitbox.y;
-        const right = left + this.hitbox.w;
-        const bottom = top + this.hitbox.h;
+        const { left, right, top, bottom } = hitboxRect(this, x, y);
         return solids.some(s =>
             left < s.x + s.w && right > s.x && top < s.y + s.h && bottom > s.y
         );

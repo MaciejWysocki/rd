@@ -21,9 +21,81 @@
 //   position — the player's x is within [x1, x2] (inclusive)
 //
 // The effects are a tagged union: mission / item / money / flag.
+//
+// Both are registries: every condition field and every effect type is one
+// entry in a table. The vocabulary of the model lives in one place
+// (content/trigger-vocabulary.js) — the config schema validates against
+// those same lists, so the two can never drift apart.
 
-/** The condition fields the model knows about. */
-const CONDITION_KEYS = ['mission', 'flags', 'items', 'money', 'defeated', 'position'];
+import { CONDITION_KEYS, EFFECT_TYPES } from './trigger-vocabulary.js';
+
+/**
+ * The condition checks, keyed by the field of the condition.
+ * Each check answers "does this field hold?"; a field that is not set
+ * (null / undefined) is not checked at all.
+ */
+const CONDITION_CHECKS = {
+    mission: (value, { mission }) => {
+        if (!mission) return false;
+        const stages = Array.isArray(value) ? value : [value];
+        return stages.some(stage => mission.isAt(stage));
+    },
+    flags: (value, { session }) => Object.entries(value)
+        .every(([name, expected]) => session.getFlag(name) === expected),
+    items: (value, { session }) => Object.entries(value)
+        .every(([id, count]) => session.countItem(id) >= count),
+    money: (value, { session }) => session.money >= value,
+    defeated: (value, { session, streetId }) => value
+        .every(ref => {
+            const { id, slot } = parseEntityRef(ref);
+            return session.isDefeated(streetId, id, slot);
+        }),
+    position: (value, { player }) => {
+        if (!player) return false;
+        const [x1, x2] = value;
+        return player.x >= x1 && player.x <= x2;
+    },
+};
+
+/** The effect appliers, keyed by the effect type. */
+const EFFECT_APPLIERS = {
+    mission: (effect, { mission }) => {
+        if (!mission) throw new Error('Efekt misji bez misji w kontekście.');
+        mission.advanceTo(effect.stage);
+    },
+    item: (effect, { session }) => {
+        const count = effect.count ?? 0;
+        if (count >= 0) session.addItem(effect.id, count);
+        else session.removeItem(effect.id, -count);
+    },
+    money: (effect, { session }) => {
+        const amount = effect.amount ?? 0;
+        if (amount < 0) session.spendMoney(-amount);
+        else session.addMoney(amount);
+    },
+    flag: (effect, { session }) => session.setFlag(effect.name, effect.value),
+};
+
+// The registries must cover the vocabulary exactly: a condition field or an
+// effect type without an implementation would silently never fire.
+assertCoversVocabulary('warunek', CONDITION_KEYS, Object.keys(CONDITION_CHECKS));
+assertCoversVocabulary('efekt', EFFECT_TYPES, Object.keys(EFFECT_APPLIERS));
+
+/**
+ * Fails loudly when the vocabulary and the implementation disagree.
+ * @param {string} label What is compared (for the error message).
+ * @param {string[]} vocabulary The declared names.
+ * @param {string[]} implemented The names that have an implementation.
+ */
+function assertCoversVocabulary(label, vocabulary, implemented) {
+    const missing = vocabulary.filter(name => !implemented.includes(name));
+    const extra = implemented.filter(name => !vocabulary.includes(name));
+    if (missing.length === 0 && extra.length === 0) return;
+    throw new Error(
+        `Niezgodność słownika (${label}): brakuje [${missing.join(', ')}], `
+        + `nieznane [${extra.join(', ')}].`
+    );
+}
 
 /**
  * Splits an entity reference into its id and its slot.
@@ -48,49 +120,16 @@ function parseEntityRef(ref) {
 export function matchesCondition(condition, context) {
     if (!condition) return true;
 
-    const { session, mission, player, streetId } = context ?? {};
-
+    const world = context ?? {};
+    // Every key is checked first: an unknown one is an error even when
+    // another field of the condition would already have failed.
     for (const key of Object.keys(condition)) {
-        if (!CONDITION_KEYS.includes(key)) {
-            throw new Error(`Nieznany warunek: "${key}".`);
-        }
+        if (!CONDITION_CHECKS[key]) throw new Error(`Nieznany warunek: "${key}".`);
     }
-
-    if (condition.mission) {
-        if (!mission) return false;
-        const stages = Array.isArray(condition.mission) ? condition.mission : [condition.mission];
-        if (!stages.some(stage => mission.isAt(stage))) return false;
+    for (const [key, value] of Object.entries(condition)) {
+        if (value == null) continue;
+        if (!CONDITION_CHECKS[key](value, world)) return false;
     }
-
-    if (condition.flags) {
-        for (const [name, value] of Object.entries(condition.flags)) {
-            if (session.getFlag(name) !== value) return false;
-        }
-    }
-
-    if (condition.items) {
-        for (const [id, count] of Object.entries(condition.items)) {
-            if (session.countItem(id) < count) return false;
-        }
-    }
-
-    if (condition.money != null) {
-        if (session.money < condition.money) return false;
-    }
-
-    if (condition.defeated) {
-        for (const ref of condition.defeated) {
-            const { id, slot } = parseEntityRef(ref);
-            if (!session.isDefeated(streetId, id, slot)) return false;
-        }
-    }
-
-    if (condition.position) {
-        if (!player) return false;
-        const [x1, x2] = condition.position;
-        if (player.x < x1 || player.x > x2) return false;
-    }
-
     return true;
 }
 
@@ -103,34 +142,11 @@ export function matchesCondition(condition, context) {
 export function applyEffects(effects, context) {
     if (!effects) return;
 
-    const { session, mission } = context ?? {};
-
+    const world = context ?? {};
     for (const effect of effects) {
-        switch (effect?.type) {
-            case 'mission': {
-                if (!mission) throw new Error('Efekt misji bez misji w kontekście.');
-                mission.advanceTo(effect.stage);
-                break;
-            }
-            case 'item': {
-                const count = effect.count ?? 0;
-                if (count >= 0) session.addItem(effect.id, count);
-                else session.removeItem(effect.id, -count);
-                break;
-            }
-            case 'money': {
-                const amount = effect.amount ?? 0;
-                if (amount < 0) session.spendMoney(-amount);
-                else session.addMoney(amount);
-                break;
-            }
-            case 'flag': {
-                session.setFlag(effect.name, effect.value);
-                break;
-            }
-            default:
-                throw new Error(`Nieznany efekt: "${effect?.type}".`);
-        }
+        const apply = EFFECT_APPLIERS[effect?.type];
+        if (!apply) throw new Error(`Nieznany efekt: "${effect?.type}".`);
+        apply(effect, world);
     }
 }
 

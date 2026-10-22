@@ -74,17 +74,22 @@ export default class Player extends Actor {
     }
 
     /**
-     * @param {number} dt        Delta time in ms.
-     * @param {Keyboard} keyboard
-     * @param {Array<{x:number,y:number,w:number,h:number}>} solids Section boundaries.
+     * @param {number} dt   Delta time in ms.
+     * @param {object} env  The world around the player: { keyboard, solids }.
      */
-    update(dt, keyboard, solids) {
+    update(dt, env = {}) {
+        const { keyboard, solids = [] } = env;
+        if (!keyboard) {
+            this.advance(dt);
+            return;
+        }
+
         // Consume the jump press even while a hop is running: no buffer.
         if (this.jumpKey) keyboard.consumePress(this.jumpKey);
         if (this.defeated) {
             this.vx = 0;
             if (this.jumping) this._advanceJump(dt);
-            super.update(dt);
+            this.advance(dt);
             return;
         }
         this.attackCooldownMs = Math.max(0, this.attackCooldownMs - dt);
@@ -115,10 +120,16 @@ export default class Player extends Actor {
 
         if (this.attacking) {
             this.vx = 0;
-            super.update(dt);
+            this.advance(dt);
             return;
         }
 
+        this._walk(dt, keyboard, solids);
+        this.advance(dt);
+    }
+
+    /** Moves left/right with the arrow keys; a blocked move still animates. */
+    _walk(dt, keyboard, solids) {
         const dir = keyboard.horizontal();
         const speed = this.walkSpeed * debugSpeedMultiplier(keyboard);
         const dx = dir * speed * (dt / 1000);
@@ -129,23 +140,13 @@ export default class Player extends Actor {
             this.tryMove(dx, 0, solids);
         }
         this.vx = dir * speed;
-        super.update(dt);
     }
 
     /** Vertical hop on a parabola; the walk cycle keeps playing — Rudy walks in the air. */
     _updateJump(dt, keyboard, solids) {
         this._advanceJump(dt);
-
-        const dir = keyboard.horizontal();
-        const speed = this.walkSpeed * debugSpeedMultiplier(keyboard);
-        const dx = dir * speed * (dt / 1000);
-        if (dir !== 0) {
-            this.facing = dir;
-            this.tryMove(dx, 0, solids);
-        }
-        // Walk animation runs normally (scaled by |vx|) so pressing arrows keeps it cycling.
-        this.vx = dir * speed;
-        super.update(dt);
+        this._walk(dt, keyboard, solids);
+        this.advance(dt);
     }
 
     /** The hop's parabola alone — also finishes the arc of a body killed mid-air. */
@@ -162,7 +163,7 @@ export default class Player extends Actor {
     /** Walk animation without player input, for scripted sequences. */
     animateWalk(dt, vx) {
         this.vx = vx;
-        super.update(dt);
+        super.advance(dt);
     }
 
     /** Not hittable while hidden inside a shop. */

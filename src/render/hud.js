@@ -25,6 +25,7 @@
 
 import { hudIconPath } from '../domain/content/asset-conventions.js';
 import { rotateHue } from './hue.js';
+import { getImage, isReady } from './image-cache.js';
 
 const X = 16;
 const Y = 16;
@@ -36,9 +37,7 @@ const icons = new Map();
 function getIcon(name) {
     let entry = icons.get(name);
     if (!entry) {
-        const img = new Image();
-        img.src = hudIconPath(name);
-        entry = { img, tinted: new Map() };
+        entry = { img: getImage(hudIconPath(name)), tinted: new Map() };
         icons.set(name, entry);
     }
     return entry;
@@ -68,7 +67,7 @@ function getIconSource(entry, hue) {
 function drawRow(ctx, name, count, y, align = 'left', hue = 0) {
     if (count <= 0) return y;
     const entry = getIcon(name);
-    if (!entry.img.complete || entry.img.naturalWidth === 0) return y;
+    if (!isReady(entry.img)) return y;
     const img = getIconSource(entry, hue);
     const width = img.naturalWidth ?? img.width;
     const height = img.naturalHeight ?? img.height;

@@ -15,8 +15,12 @@
 //   a move's row     - one attack = 4 frames (8 when the move is "alternate")
 //   the death row    - the fall, deathFrames frames
 
-export const WALK_FRAMES = 8; // row 0 of a sheet: the walk cycle
-export const ATTACK_FRAMES = 4; // one attack = 4 frames of its row
+import { ATTACK_FRAMES, WALK_FRAMES } from './asset-conventions.js';
+import { PATROL, SENTRY } from '../actors/behavior.js';
+
+// The AI behaviours a character config may name — the strategies of
+// domain/actors/behavior.js. The schema accepts exactly those.
+const BEHAVIORS = [PATROL, SENTRY];
 
 const DEFAULT_WALK_FRAME_MS = 80;
 const DEFAULT_ATTACK_HOLD_MS = 150;
@@ -24,7 +28,6 @@ const DEFAULT_RECOVERY_MS = 700;
 const DEFAULT_DEATH_FRAMES = 4;
 const DEFAULT_MONEY = 0;
 
-const BEHAVIORS = ['patrol', 'sentry'];
 const MOVE_TYPES = ['headbutt', 'punch', 'kick', 'vomit'];
 const RANGED_MOVE_TYPE = 'vomit'; // the only move that does not hit with a fist
 

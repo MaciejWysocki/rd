@@ -17,7 +17,7 @@
 // An enemy's target is always the player; the player's target is the nearest
 // opponent it can reach.
 
-import { isStrikeInRange, resolveStrike } from './combat.js';
+import { isStrikeInRange, resolveStrike, strikeDirection } from './combat.js';
 
 /**
  * Resolves every blow that is ready and returns the events.
@@ -77,12 +77,6 @@ function pickStrikeTarget(player, combatants) {
         }
     }
     return best;
-}
-
-/** The knockback direction: towards the target's centre, the attacker's facing as the fallback. */
-function strikeDirection(attacker, target) {
-    return Math.sign(target.x + target.hitbox.x + target.hitbox.w / 2
-        - (attacker.x + attacker.hitbox.x + attacker.hitbox.w / 2)) || attacker.facing;
 }
 
 /** True when the blow in progress is a ranged one (the old boss's vomit). */

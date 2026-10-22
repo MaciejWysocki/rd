@@ -27,6 +27,10 @@ const PANEL_SCALE = 2 / 3;
 const BUTTON_W = 400;
 const BUTTON_H = 80;
 
+// The decorative frame around the panel, at its original size.
+const FRAME_X = 229;
+const FRAME_Y = 93;
+
 export default class EndScreen {
     /**
      * @param {object} deps
@@ -133,7 +137,7 @@ export default class EndScreen {
         ctx.fillText('kliknij przycisk lub naciśnij Enter', width / 2, button.y + button.h + 36);
 
         if (this.frameImage.complete && this.frameImage.naturalWidth > 0) {
-            ctx.drawImage(this.frameImage, 229, 93);
+            ctx.drawImage(this.frameImage, FRAME_X, FRAME_Y);
         }
     }
 

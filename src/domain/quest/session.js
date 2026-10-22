@@ -10,8 +10,12 @@
 //
 // The statistics are seeded from the player character config, so the player is
 // the only character that ever appears in them.
+//
+// The state of the hostiles lives in their own store (hostile-states.js) —
+// the session owns it, but the store owns the keys and the bookkeeping.
 
 import Mission from './mission.js';
+import HostileStates from './hostile-states.js';
 
 // How many random hues a game draws — the copies of the hostiles take them
 // one by one (world/entity-hues.js). Far more than a section needs.
@@ -26,21 +30,6 @@ function drawHuePool() {
     const pool = [];
     for (let i = 0; i < HUE_POOL_SIZE; i++) pool.push(Math.random() * 360);
     return pool;
-}
-
-/**
- * The identity of a hostile: the street, the section, the list it comes from,
- * its label and its place in that list. Two hostiles of the same label in one
- * section keep their own place — and so do the same labels in two sections.
- * @param {string} streetId The street the hostile belongs to.
- * @param {number} section The section number (1-based).
- * @param {string} role 'enemy' or 'boss' — the list the hostile comes from.
- * @param {string} id The hostile's label.
- * @param {number} slot The hostile's place in that list.
- * @returns {string} The key of the hostile's state.
- */
-function hostileKey(streetId, section, role, id, slot) {
-    return `${streetId}/${section}/${role}/${id}#${slot}`;
 }
 
 export default class Session {
@@ -60,7 +49,7 @@ export default class Session {
         // they stand and whether they lie dead. Keyed by the hostile's
         // identity: "<street>/<section>/<role>/<id>#<slot>"
         // (session-only, like everything else).
-        this._hostileStates = new Map();
+        this._hostileStates = new HostileStates();
     }
 
     /** The mission of the current street. */
@@ -97,11 +86,6 @@ export default class Session {
         return this._inventory;
     }
 
-    /** The world flags: { flagName: boolean }. */
-    get flags() {
-        return this._flags;
-    }
-
     /** The character statistics: { characterName: { hp, maxHp, kills } }. */
     get stats() {
         return this._stats;
@@ -112,18 +96,18 @@ export default class Session {
         return this._playTimeMs;
     }
 
-    /** The random hues of the hostiles: a new set for every game. */
-    get huePool() {
-        return this._huePool;
-    }
-
     /** @param {number} value The new value of the game timer. */
     set playTimeMs(value) {
         const ms = Number(value);
         this._playTimeMs = Number.isFinite(ms) ? ms : 0;
     }
 
-    /** The state of the hostiles: Map<key, { x, y, facing, direction, defeated }>. */
+    /** The random hues of the hostiles: a new set for every game. */
+    get huePool() {
+        return this._huePool;
+    }
+
+    /** The state of the hostiles (the store — see hostile-states.js). */
     get hostileStates() {
         return this._hostileStates;
     }
@@ -160,15 +144,6 @@ export default class Session {
      */
     countItem(id) {
         return this._inventory[id]?.qty ?? 0;
-    }
-
-    /**
-     * @param {string} id The item's id.
-     * @param {number} qty How many items.
-     * @returns {boolean} true when at least that many items are carried.
-     */
-    hasItem(id, qty = 1) {
-        return this.countItem(id) >= qty;
     }
 
     /* Money helpers */
@@ -216,76 +191,39 @@ export default class Session {
     /**
      * Remembers where a hostile stands, so it is still there on the next visit
      * to the section — it does not jump back to its post.
-     * @param {string} streetId The street the hostile belongs to.
-     * @param {number} section The section number (1-based).
-     * @param {string} role 'enemy' or 'boss' — the list the hostile comes from.
-     * @param {string} id The hostile's label.
-     * @param {number} slot The hostile's place in that list.
+     * @param {object} identity The hostile's identity (see hostileIdentity).
      * @param {{x:number,y:number,facing:number,direction:number}} state Where it stands.
      */
-    saveHostile(streetId, section, role, id, slot, { x, y, facing, direction }) {
-        if (id == null) return;
-        const key = hostileKey(streetId, section, role, id, slot);
-        const previous = this._hostileStates.get(key);
-        this._hostileStates.set(key, {
-            streetId, section, role, id, slot,
-            x, y, facing, direction,
-            // A hostile that fell stays fallen — a living state never revives it.
-            defeated: previous?.defeated ?? false,
-        });
+    saveHostile(identity, state) {
+        this._hostileStates.save(identity, state);
     }
 
     /**
      * The state of a hostile: where it stands and whether it lies dead.
-     * @param {string} streetId The street the hostile belongs to.
-     * @param {number} section The section number (1-based).
-     * @param {string} role 'enemy' or 'boss' — the list the hostile comes from.
-     * @param {string} id The hostile's label.
-     * @param {number} slot The hostile's place in that list.
-     * @returns {{x:number,y:number,facing:number,direction:number,defeated:boolean}|null}
-     *          The state, or null when the hostile was never seen.
+     * @param {object} identity The hostile's identity (see hostileIdentity).
+     * @returns {object|null} The state, or null when the hostile was never seen.
      */
-    getHostile(streetId, section, role, id, slot) {
-        if (id == null) return null;
-        return this._hostileStates.get(hostileKey(streetId, section, role, id, slot)) ?? null;
+    getHostile(identity) {
+        return this._hostileStates.get(identity);
     }
 
     /**
      * Records a kill so the corpse is still lying there on later visits.
-     * @param {string} streetId The street the hostile belongs to.
-     * @param {number} section The section number (1-based).
-     * @param {string} role 'enemy' or 'boss' — the list the hostile comes from.
-     * @param {string} id The hostile's label.
-     * @param {number} slot The hostile's place in that list.
+     * @param {object} identity The hostile's identity (see hostileIdentity).
      * @param {{x:number,y:number,facing:number}} position Where the body lies.
      */
-    markDefeated(streetId, section, role, id, slot, { x, y, facing }) {
-        if (id == null) return;
-        const key = hostileKey(streetId, section, role, id, slot);
-        const previous = this._hostileStates.get(key);
-        this._hostileStates.set(key, {
-            streetId, section, role, id, slot,
-            x, y, facing,
-            direction: previous?.direction ?? 0,
-            defeated: true,
-        });
+    markDefeated(identity, position) {
+        this._hostileStates.markDefeated(identity, position);
     }
 
     /**
-     * @param {string} streetId The street the entity belongs to.
+     * @param {string} streetId The entity belongs to.
      * @param {string} id The entity's label.
-     * @param {number|null} slot The entity's place in the list (null = any slot).
+     * @param {number|null} [slot] The entity's place in the list (null = any slot).
      * @returns {boolean} true when the entity lies dead in the street.
      */
     isDefeated(streetId, id, slot) {
-        if (id == null) return false;
-        for (const state of this._hostileStates.values()) {
-            if (!state.defeated) continue;
-            if (state.streetId !== streetId || state.id !== id) continue;
-            if (slot != null && state.slot !== slot) continue;
-            return true;
-        }
-        return false;
+        return this._hostileStates.isDefeated(streetId, id, slot);
     }
 
     /* Statistics helpers */
@@ -331,6 +269,6 @@ export default class Session {
         };
         this._playTimeMs = 0;
         this._huePool = drawHuePool(); // a new look for every game
-        this._hostileStates = new Map();
+        this._hostileStates.clear();
     }
 }

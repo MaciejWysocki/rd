@@ -22,6 +22,11 @@
 // The only exception: a sentry with the 'hit' trigger CAN be hit — the blow
 // itself starts the fight.
 //
+// The two behaviours are strategy objects (actors/behavior.js): the class
+// below holds the mechanics (the movement, the blow, the trigger) and the
+// behaviour decides the policy. A new behaviour is a new strategy — this
+// class does not change.
+//
 // In strike reach an enemy attacks IMMEDIATELY — no reaction pause (owner
 // 2026-10-14). One blow per exchange (see combat.js): the blow is resolved
 // at full extension and the only wait is between consecutive blows — the
@@ -34,6 +39,8 @@
 // injected projectile instead (releaseProjectile).
 
 import Actor from './actor.js';
+import { centerX } from './hitbox.js';
+import { behaviorFor, PATROL } from './behavior.js';
 import { HIT_DAMAGE, STRIKE_REACH_PX, isStrikeInRange } from '../combat/combat.js';
 
 const DIR_LEFT = -1;
@@ -53,7 +60,7 @@ export default class Enemy extends Actor {
      * @param {object} options.character Normalized Character model.
      * @param {object} options.sheet      Sprite sheet: { drawFrame(ctx, row, frame, x, y, facing) }.
      * @param {string|null} options.id    Street-entity id (the label of the entity).
-     * @param {string} options.role        'enemy' or 'boss' — the app layer gives the boss
+     * @param {string|null} options.role  'enemy' or 'boss' — the app layer gives the boss
      *                                      the fight music and the intro sentence.
      * @param {{type:string, distance:number|null}} options.trigger
      *        The fight trigger: 'always', 'distance' or 'hit'.
@@ -75,7 +82,7 @@ export default class Enemy extends Actor {
         this.spawnX = x;
         this.direction = DIR_LEFT;
         // 'patrol' walks its stretch, 'sentry' stands still until the fight.
-        this.behavior = character.behavior ?? 'patrol';
+        this.behavior = behaviorFor(character.behavior ?? PATROL);
         // 'melee' trades blows, 'ranged' releases a projectile.
         this.attackKind = character.attackKind ?? 'melee';
         this.projectile = projectile;
@@ -104,7 +111,7 @@ export default class Enemy extends Actor {
      * @param {Actor|null} target The player.
      */
     shouldStartFight(target) {
-        return this._triggerMet(target);
+        return this.triggerMet(target);
     }
 
     /** Starts the fight. The intro audio and the boss music are the caller's job. */
@@ -133,14 +140,14 @@ export default class Enemy extends Actor {
 
     /** True while this enemy is fighting the player (the HUD shows its HP). */
     isFighting(target) {
-        if (this.behavior === 'sentry') return this.fightStarted && !this.defeated;
-        return this._isEngaged(target);
+        if (this.defeated) return false;
+        return this.behavior.fighting(this, target);
     }
 
     /** A sentry is untouchable until the fight starts — the 'hit' trigger excepted. */
     canBeHit() {
         if (this.defeated) return false;
-        if (this.behavior === 'sentry') return this.fightStarted || this.trigger.type === 'hit';
+        if (this.behavior.locked(this)) return false;
         return true;
     }
 
@@ -152,12 +159,12 @@ export default class Enemy extends Actor {
 
     /**
      * @param {number} dt Delta time in ms.
-     * @param {Array<{x:number,y:number,w:number,h:number}>} solids Section boundaries.
-     * @param {Actor|null} target The player, when present and hittable.
+     * @param {object} env The world around the enemy: { solids, target }.
      */
-    update(dt, solids, target = null) {
+    update(dt, env = {}) {
+        const { solids = [], target = null } = env;
         if (this.defeated) {
-            super.update(dt); // the fall animation keeps playing
+            this.advance(dt); // the fall animation keeps playing
             return;
         }
 
@@ -170,14 +177,14 @@ export default class Enemy extends Actor {
                 this.attackHoldElapsed += dt;
                 if (this.attackHoldElapsed >= this.attackHoldMs) this.endAttack();
             }
-            super.update(dt);
+            this.advance(dt);
             return;
         }
 
-        if (this._isEngaged(target)) this._combatStance(dt, solids, target);
-        else this._patrol(dt, solids);
+        if (this.engagedWith(target)) this._combatStance(dt, solids, target);
+        else this.behavior.idle(this, dt, solids);
 
-        super.update(dt);
+        this.advance(dt);
     }
 
     /** Releases the ranged attack: the projectile leaves the mouth, no RPS. */
@@ -208,26 +215,24 @@ export default class Enemy extends Actor {
     }
 
     /** True when the fight trigger is met — the raw trigger, without the sentry's latch. */
-    _triggerMet(target) {
+    triggerMet(target) {
         if (this.trigger.type === 'always') return Boolean(target) && target.canBeHit();
         if (this.trigger.type === 'hit') return this.hitEngaged;
         if (!target || !target.canBeHit()) return false;
-        return Math.abs(this._centerX() - this._targetCenterX(target)) <= this.engageDistancePx;
+        return Math.abs(centerX(this) - centerX(target)) <= this.engageDistancePx;
     }
 
     /** True while this enemy is fighting the player — the trigger decides when. */
-    _isEngaged(target) {
+    engagedWith(target) {
         if (this.defeated) return false;
         if (!target || !target.canBeHit()) return false;
-        // A sentry never gives up the chase once its fight has started.
-        if (this.behavior === 'sentry') return this.fightStarted;
-        return this._triggerMet(target);
+        return this.behavior.engaged(this, target);
     }
 
     /** Faces the player, closes in and trades single blows. */
     _combatStance(dt, solids, target) {
-        const targetCenter = this._targetCenterX(target);
-        this.facing = targetCenter >= this._centerX() ? DIR_RIGHT : DIR_LEFT;
+        const targetCenter = centerX(target);
+        this.facing = targetCenter >= centerX(this) ? DIR_RIGHT : DIR_LEFT;
 
         if (isStrikeInRange(this, target, this.attackReachPx)) {
             this.vx = 0;
@@ -242,16 +247,11 @@ export default class Enemy extends Actor {
 
     /**
      * Patrols between the spawn point (right) and the left end of the section
-     * (or the first solid in the way). A sentry does not move at all.
+     * (or the first solid in the way).
      * @param {number} dt Delta time in ms.
      * @param {Array<{x:number,y:number,w:number,h:number}>} solids Section boundaries.
      */
-    _patrol(dt, solids) {
-        if (this.behavior === 'sentry') {
-            // Standing idle: no walking, no turning, no reaction of any kind.
-            this.vx = 0;
-            return;
-        }
+    walkPatrol(dt, solids) {
         if (!this.tryMove(this.direction * this.walkSpeed * (dt / 1000), 0, solids)) {
             this._turnAround();
         } else if (this.direction === DIR_RIGHT && this.x >= this.spawnX) {
@@ -268,13 +268,5 @@ export default class Enemy extends Actor {
 
     _turnAround() {
         this.direction = this.direction === DIR_LEFT ? DIR_RIGHT : DIR_LEFT;
-    }
-
-    _centerX() {
-        return this.x + this.hitbox.x + this.hitbox.w / 2;
-    }
-
-    _targetCenterX(target) {
-        return target.x + target.hitbox.x + target.hitbox.w / 2;
     }
 }

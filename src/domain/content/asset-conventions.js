@@ -8,6 +8,8 @@
 // and the audio adapter turns a track name into a path with soundPath().
 
 export const FRAME_SIZE = 150; // sprite-sheet frames are 150x150 px
+export const WALK_FRAMES = 8;   // row 0 of a sheet: the walk cycle
+export const ATTACK_FRAMES = 4; // one attack = 4 frames of its row
 
 export const ASSET_DIRS = {
     backgrounds: 'assets/bg/',

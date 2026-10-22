@@ -5,21 +5,25 @@
 // Procedural blood on hits (PLAN.md P1.4): every blow that lands sprays a
 // burst of small (3x3 px) red squares out of the struck character. The spray
 // flies away from the blow, arcs down under gravity and lands on the ground
-// line (the struck character's feet), where the stains stay until the section
-// is left. Purely visual — combat and HP never look here.
+// line (the struck character's feet), where the stains stay until the
+// section is left. Purely visual — combat and HP never look here.
+//
+// The physics of the squares is the shared particle field
+// (render/particles.js); this module only says how the blood looks and
+// where it is born.
 
+import ParticleField from './particles.js';
 import { FRAME_SIZE } from '../domain/content/asset-conventions.js';
 
-const PARTICLE_SIZE_PX = 3;
 const PARTICLES_PER_HIT = 12;
-const GRAVITY_PX_PER_MS2 = 0.003;   // squares arc down and land
 const SPRAY_RISE_PX_PER_MS = 0.5;   // initial upward burst
 const SPRAY_DRIFT_PX_PER_MS = 0.4;  // pushed away from the blow
+const GRAVITY_PX_PER_MS2 = 0.003;   // squares arc down and land
 const COLOR = '#b30000';
 
 export default class Blood {
     constructor() {
-        this.particles = [];
+        this.field = new ParticleField({ size: 3, color: COLOR, gravity: GRAVITY_PX_PER_MS2 });
     }
 
     /**
@@ -32,40 +36,27 @@ export default class Blood {
         const x = target.x + FRAME_SIZE / 2;
         const y = target.y + FRAME_SIZE / 2;
         for (let i = 0; i < PARTICLES_PER_HIT; i++) {
-            this.particles.push({
+            this.field.add(
                 x,
                 y,
-                vx: dirX * Math.random() * SPRAY_DRIFT_PX_PER_MS,
-                vy: -Math.random() * SPRAY_RISE_PX_PER_MS,
+                dirX * Math.random() * SPRAY_DRIFT_PX_PER_MS,
+                -Math.random() * SPRAY_RISE_PX_PER_MS,
                 groundY,
-                landed: false,
-            });
+            );
         }
     }
 
     /** Gravity: the spray falls and stops on the ground line. */
     update(dt) {
-        for (const p of this.particles) {
-            if (p.landed) continue;
-            p.vy += GRAVITY_PX_PER_MS2 * dt;
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            if (p.y >= p.groundY) {
-                p.y = p.groundY;
-                p.landed = true;
-            }
-        }
+        this.field.update(dt);
     }
 
     draw(ctx) {
-        ctx.fillStyle = COLOR;
-        for (const p of this.particles) {
-            ctx.fillRect(p.x, p.y, PARTICLE_SIZE_PX, PARTICLE_SIZE_PX);
-        }
+        this.field.draw(ctx);
     }
 
     /** Blood is transient: it is wiped together with the section on leaving it. */
     clear() {
-        this.particles.length = 0;
+        this.field.clear();
     }
 }
