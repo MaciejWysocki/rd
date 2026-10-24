@@ -26,6 +26,7 @@
 // engine must agree on them.
 
 import { CONDITION_KEYS, EFFECT_TYPES } from '../quest/trigger-vocabulary.js';
+import { FACING } from '../actors/actor.js';
 
 const FIGHT_TYPES = ['always', 'distance', 'hit'];
 const INTERACTION_TYPES = ['walkable'];
@@ -42,7 +43,7 @@ const INTERACTION_KEYS = ['id', 'type', 'x1', 'x2', 'when', 'triggers'];
 // characters (e.g. a street light in the foreground).
 const OVERLAY_POSITIONS = ['back', 'front'];
 const TRIGGER_KEYS = ['when', 'stay', 'effects'];
-const ENTITY_KEYS = ['id', 'type', 'x', 'y', 'fight', 'presentWhen'];
+const ENTITY_KEYS = ['id', 'type', 'x', 'y', 'facing', 'fight', 'presentWhen'];
 const FIGHT_KEYS = ['type', 'distance'];
 
 // The terse effect forms: {"mission": 2}, {"item": "beer", "count": 1},
@@ -224,6 +225,7 @@ function normalizeEntities(raw, role, streetId, source, sectionContext) {
             role,
             x: requireNumber(entity.x, 'x', streetId, source, context),
             y: requireNumber(entity.y, 'y', streetId, source, context),
+            facing: normalizeFacing(entity.facing, streetId, source, context),
             fight: normalizeFight(entity.fight, streetId, source, context),
             presentWhen: normalizeCondition(entity.presentWhen, streetId, source, context),
             slot: index,
@@ -259,6 +261,27 @@ function normalizeFight(raw, streetId, source, context) {
         fail(streetId, source, context, 'pole "fight.distance" musi być dodatnią liczbą.');
     }
     return { type, distance };
+}
+
+/**
+ * Which way a hostile spawns facing and walking: "left" (the default, like
+ * every hostile) or "right". The words and their mirror signs live in the
+ * model with the field they describe (FACING in actors/actor.js) — the schema
+ * only validates against that table.
+ * @returns {number} -1 (left) or 1 (right).
+ */
+function normalizeFacing(raw, streetId, source, context) {
+    if (raw === undefined || raw === null) return FACING.left;
+    const facing = String(raw);
+    const known = Object.keys(FACING);
+    if (!known.includes(facing)) {
+        fail(
+            streetId, source, context,
+            `pole "facing" ma nieznaną wartość "${facing}"`
+            + ` (dozwolone: ${known.map(value => `"${value}"`).join(', ')}).`
+        );
+    }
+    return FACING[facing];
 }
 
 /* ---------- The triggers ---------- */

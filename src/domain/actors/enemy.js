@@ -5,9 +5,9 @@
 // Every hostile in one config-driven class — the patrol enemy and the boss
 // are the same thing now, only the behaviour differs.
 //
-// A patrol enemy (behavior: 'patrol') walks its stretch of the section
-// (its spawn point and the first solid in the way) until the fight trigger
-// from the street config is met:
+// A patrol enemy (behavior: 'patrol') walks the whole section — it bounces
+// between the edges of the screen, wherever it spawns — until the fight
+// trigger from the street config is met:
 //   'always'  — the enemy fights the player as soon as he is in the section
 //   'distance' — the enemy is peaceful while the player is farther away than
 //                the configured distance, and fights him when he comes closer
@@ -55,8 +55,14 @@ const RANGED_ATTACK_REACH_PX = 300;
 export default class Enemy extends Actor {
     /**
      * @param {object} options
-     * @param {number} options.x         Spawn X (frame top-left) in world px. Right end of the patrol.
+     * @param {number} options.x         Spawn X (frame top-left) in world px.
      * @param {number} options.y         Frame top-left Y in world px.
+     * @param {number} [options.facing]  The way it spawns facing and walking: -1 (left,
+     *        the default — like every hostile) or 1 (right). The "facing" of the
+     *        street config (FACING in actor.js).
+     * @param {number} [options.patrolX1] The stretch of the section it patrols: it
+     * @param {number} [options.patrolX2] bounces between these frame positions (the whole
+     *        section — see PATROL_X_MIN / PATROL_X_MAX in world/layout.js).
      * @param {object} options.character Normalized Character model.
      * @param {object} options.sheet      Sprite sheet: { drawFrame(ctx, row, frame, x, y, facing) }.
      * @param {string|null} options.id    Street-entity id (the label of the entity).
@@ -75,13 +81,16 @@ export default class Enemy extends Actor {
     constructor({
         x, y, character, sheet, id = null, role = 'enemy',
         trigger = { type: 'distance', distance: null }, slot = null, projectile = null, hue = 0,
+        facing = DIR_LEFT, patrolX1 = 0, patrolX2 = x,
     }) {
         super({ x, y, character, sheet, id, hue });
         this.role = role;
         this.slot = slot;
-        this.spawnX = x;
-        this.direction = DIR_LEFT;
-        // 'patrol' walks its stretch, 'sentry' stands still until the fight.
+        this.facing = facing;
+        this.direction = facing; // a patrol sets off the way it spawns facing
+        this.patrolX1 = patrolX1;
+        this.patrolX2 = patrolX2;
+        // 'patrol' walks the section, 'sentry' stands still until the fight.
         this.behavior = behaviorFor(character.behavior ?? PATROL);
         // 'melee' trades blows, 'ranged' releases a projectile.
         this.attackKind = character.attackKind ?? 'melee';
@@ -121,8 +130,7 @@ export default class Enemy extends Actor {
 
     /**
      * Puts the enemy back where it stood when the player left the section:
-     * the position, the facing and the direction of the patrol. Its post
-     * (spawnX) stays the same — the enemy walks back to it.
+     * the position, the facing and the direction of the patrol.
      * @param {{x:number,y:number,facing:number,direction:number}} state Where it stood.
      */
     restoreState({ x, y, facing, direction }) {
@@ -246,19 +254,19 @@ export default class Enemy extends Actor {
     }
 
     /**
-     * Patrols between the spawn point (right) and the left end of the section
-     * (or the first solid in the way).
+     * Patrols the whole section: it bounces between the edges of its patrol
+     * stretch (the whole screen) and any solid in the way.
      * @param {number} dt Delta time in ms.
      * @param {Array<{x:number,y:number,w:number,h:number}>} solids Section boundaries.
      */
     walkPatrol(dt, solids) {
         if (!this.tryMove(this.direction * this.walkSpeed * (dt / 1000), 0, solids)) {
             this._turnAround();
-        } else if (this.direction === DIR_RIGHT && this.x >= this.spawnX) {
-            this.x = this.spawnX;
+        } else if (this.direction === DIR_RIGHT && this.x >= this.patrolX2) {
+            this.x = this.patrolX2;
             this._turnAround();
-        } else if (this.direction === DIR_LEFT && this.x <= 0) {
-            this.x = 0;
+        } else if (this.direction === DIR_LEFT && this.x <= this.patrolX1) {
+            this.x = this.patrolX1;
             this._turnAround();
         }
 

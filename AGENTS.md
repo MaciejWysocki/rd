@@ -127,10 +127,11 @@ One file per street; the file name (without `.json`) is the street id used by ev
 | Overlay | `x`, `y` (numbers), `when` (a condition), `position` (`"back"` — the default — or `"front"`) — the image is `assets/bg/<street>-<n>-<i>.png`, the index is 1-based |
 | Interaction | `id` (required), `type` (`"walkable"`), `x1`/`x2` (the stretch of the section), `when` (a condition), `triggers` |
 | Trigger | `when` (a condition, optional), `stay` (ms, optional), `effects` (an array) |
-| Entity (`enemies` / `bosses`) | `id` (required), `type` (a character type, required), `x`, `y` (required numbers), `fight`, `presentWhen` |
-| Fight | `type` (`"always"` \| `"distance"` \| `"hit"`), `distance` (required and > 0 for `"distance"`) |
+|Entity (`enemies` / `bosses`)|`id` (required), `type` (a character type, required), `x`, `y` (required numbers), `facing`, `fight`, `presentWhen`|
+|Fight|`type` (`"always"` \|`"distance"` \|`"hit"`), `distance` (required and > 0 for `"distance"`)|
 
 - The **role** (enemy / boss) comes from the list the entity is in — there is no `role` key in the config.
+- `facing` — `"left"` (the default, like every hostile) or `"right"`: the way the hostile spawns facing **and sets off walking**. A patrol bounces across the **whole section** (edge to edge of the screen) wherever it spawns — `x` is only where it starts.
 - `presentWhen` — the entity exists in the world only while the condition holds.
 - The **overlay `position`**: `"back"` is drawn with the background, `"front"` is drawn **over the player and the enemies** — a street light standing in the foreground.
 - The **interaction `when`**: while the condition does not hold, the spot is **not interactive at all** — the player walks over it and ↑ jumps as usual.
@@ -217,6 +218,7 @@ Change these only deliberately — the timings are what the game feels like.
 | the ground line | y = 598 | `src/world/layout.js` |
 | the entry points | x = 50 (left) / x = 1450 (right) | `src/world/layout.js` |
 | the street-end wall | 40 px | `src/world/layout.js` |
+| the patrol stretch | the whole section: x = 0…1450 | `src/world/layout.js` |
 | the walk cycle | 80 ms per frame, 8 frames | the character config / `asset-conventions.js` |
 | the punch | 17.5 ms per frame, 4 frames per move | the character config |
 | the strike reach | 80 px (hitbox edge to hitbox edge) | `src/domain/combat/combat.js` |

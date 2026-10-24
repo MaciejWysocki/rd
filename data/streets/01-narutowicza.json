@@ -41,7 +41,7 @@
                     "fight": { "type": "distance", "distance": 300 }
                 },
                 {
-                    "id": "lysy-blokers",
+                    "id": "lysy-blokers2",
                     "type": "lysy-blokers",
                     "x": 1050,
                     "y": 598,
@@ -59,6 +59,16 @@
             ],
             "overlays": [
                 { "x": 1427, "y": 573, "when": { "mission": [0] } }
+            ],
+            "enemies": [
+                {
+                    "id": "dziadek-biurowy",
+                    "type": "dziadek-biurowy",
+                    "x": 500,
+                    "y": 598,
+                    "facing": "right",                    
+                    "fight": { "type": "hit" }
+                }
             ],
             "bosses": [
                 {
@@ -95,6 +105,23 @@
                         }
                     ],
                     "when": { "mission": [3] }
+                }
+            ],
+            "enemies": [
+                {
+                    "id": "dziadek-biurowy",
+                    "type": "dziadek-biurowy",
+                    "x": 1450,
+                    "y": 598,
+                    "fight": { "type": "hit" }
+                },
+                {
+                    "id": "baba-dzwigara",
+                    "type": "baba-dzwigara",
+                    "x": 300,
+                    "y": 598,
+                    "facing": "right",
+                    "fight": { "type": "hit" }
                 }
             ]
         }

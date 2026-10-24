@@ -29,7 +29,7 @@ import Vomit from '../render/vomit.js';
 import { planEntityHues } from './entity-hues.js';
 import { FRAME_SIZE, spritePath, backgroundPath } from '../domain/content/asset-conventions.js';
 import { applyEffects, matchesCondition } from '../domain/quest/triggers.js';
-import { CANVAS_W, CANVAS_H, WALL_W } from './layout.js';
+import { CANVAS_W, CANVAS_H, WALL_W, PATROL_X_MIN, PATROL_X_MAX } from './layout.js';
 
 export default class Section {
     /**
@@ -209,6 +209,10 @@ export default class Section {
                 slot: entity.slot,
                 projectile: character.attackKind === 'ranged' ? new Vomit() : null,
                 hue,
+                facing: entity.facing,
+                // A patrolling hostile walks the whole section, wherever it spawns.
+                patrolX1: PATROL_X_MIN,
+                patrolX2: PATROL_X_MAX,
             });
             await enemy.load();
 

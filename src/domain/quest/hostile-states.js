@@ -68,14 +68,15 @@ export default class HostileStates {
     /**
      * Records a kill so the corpse is still lying there on later visits.
      * @param {object} identity The hostile's identity.
-     * @param {{x:number,y:number,facing:number}} position Where the body lies.
+     * @param {{x:number,y:number,facing:number,deathSlideDir:number}} position
+     *        Where the body lies and the way it fell.
      */
-    markDefeated(identity, { x, y, facing }) {
+    markDefeated(identity, { x, y, facing, deathSlideDir }) {
         if (identity.id == null) return;
         const previous = this._states.get(this.key(identity));
         this._states.set(this.key(identity), {
             ...identity,
-            x, y, facing,
+            x, y, facing, deathSlideDir,
             direction: previous?.direction ?? 0,
             defeated: true,
         });

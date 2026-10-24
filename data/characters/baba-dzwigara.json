@@ -1,0 +1,10 @@
+{
+    "name": "baba-dzwigara",
+    "sprite": "baba-dzwigara",
+    "deathRow": 1,
+    "hp": 1,
+    "walkSpeed": 70,
+    "walkFrameMs": 100,
+    "attackFrameMs": 75,
+    "hitbox": { "x": 55, "y": 120, "w": 20, "h": 25 }
+}

@@ -26,8 +26,16 @@ export const START_X = 50;
 /** Where Rudy appears when he walks into a section from the left. */
 export const ENTRY_X_FROM_LEFT = START_X;
 
-/**
- * Where Rudy appears when he walks into a section from the right: his frame
+/** Where Rudy appears when he walks into a section from the right: his frame
  * flush with the right edge of the canvas (1600 - 150).
  */
 export const ENTRY_X_FROM_RIGHT = CANVAS_W - 150;
+
+/**
+ * The stretch of a section a patrolling hostile walks: the whole screen, its
+ * frame always on screen. The hostiles bounce between these frame positions
+ * regardless of where they spawn (the "facing" of the street config decides
+ * which way they set off).
+ */
+export const PATROL_X_MIN = 0;
+export const PATROL_X_MAX = CANVAS_W - 150;

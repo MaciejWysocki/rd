@@ -33,8 +33,15 @@ import { shitboxRect } from './shitbox.js';
 
 export const ROW_WALK = 0;
 
+// Which way an actor faces: the words of the street config ("facing": "left" /
+// "right") and the sign the sprite mirror and the movement use. The vocabulary
+// lives here, with the field it describes — the config schema validates
+// against this table (street-schema.js), never the other way round.
+export const FACING = { left: -1, right: 1 };
+
 // Death: the fall plays on the character's death row while the body slides a
-// little back (opposite the facing). The row has `deathFrames` frames (default
+// little the way the killing blow pushed it — hit from behind, the enemy falls
+// forward (owner 2026-10-24). The row has `deathFrames` frames (default
 // 4; Rudy's row 2 uses all 8 — owner 2026-10-15). Sheets without a fall row
 // fall back to the rotated placeholder pose.
 const DEATH_FRAMES = 4;
@@ -75,6 +82,9 @@ export default class Actor {
         this.deathRow = character.deathRow ?? null;
         this.deathFrames = character.deathFrames ?? DEATH_FRAMES;
         this.deathElapsed = 0;
+        // The way the body slides while it falls: the direction of the blow
+        // that killed it (set in takeDamage / spawnDefeated).
+        this.deathSlideDir = -this.facing;
 
         this.row = ROW_WALK;
         this.frame = 0;
@@ -173,6 +183,10 @@ export default class Actor {
             this.row = this.deathRow ?? ROW_WALK;
             this.frame = 0;
             this.frameTimer = 0;
+            // The body falls the way the blow pushed it: hit from behind, the
+            // enemy falls forward (owner 2026-10-24). A blow with no direction
+            // (the vomit) falls back to the old behaviour: opposite the facing.
+            this.deathSlideDir = direction !== 0 ? Math.sign(direction) : -this.facing;
         }
     }
 
@@ -250,12 +264,14 @@ export default class Actor {
     /**
      * Spawns as an already-defeated corpse at the given spot — used when a kill
      * is persisted in the session and the section is re-entered.
-     * @param {{x:number, y:number, facing:number}} position Where the body lies.
+     * @param {{x:number, y:number, facing:number, deathSlideDir:number}} position
+     *        Where the body lies and the way it fell.
      */
-    spawnDefeated({ x, y, facing }) {
+    spawnDefeated({ x, y, facing, deathSlideDir }) {
         this.x = x;
         this.y = y;
         this.facing = facing;
+        this.deathSlideDir = deathSlideDir ?? -this.facing;
         this.hp = 0;
         this.defeated = true;
         this.spawnedDefeated = true;
@@ -296,9 +312,9 @@ export default class Actor {
         }
         if (this.deathRow !== null) {
             // The fall plays on the death row while the body slides a little
-            // back (opposite the facing), then holds the lying frame.
+            // the way the killing blow pushed it, then holds the lying frame.
             const progress = this.deathElapsed / (this.deathFrames * DEATH_FRAME_MS);
-            this.sheet.drawFrame(ctx, this.row, this.frame, drawX - this.facing * DEATH_SHIFT_PX * progress, drawY, this.facing);
+            this.sheet.drawFrame(ctx, this.row, this.frame, drawX + this.deathSlideDir * DEATH_SHIFT_PX * progress, drawY, this.facing);
             return;
         }
         // Placeholder for sheets without a fall row: the frame lies rotated on

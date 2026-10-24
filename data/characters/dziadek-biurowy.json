@@ -1,0 +1,10 @@
+{
+    "name": "dziadek-biurowy",
+    "sprite": "dziadek-biurowy",
+    "deathRow": 1,
+    "hp": 1,
+    "walkSpeed": 120,
+    "walkFrameMs": 80,
+    "attackFrameMs": 75,
+    "hitbox": { "x": 55, "y": 120, "w": 20, "h": 25 }
+}
