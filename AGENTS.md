@@ -176,11 +176,11 @@ The file name is the character's **type**; the `name` field is the character nam
 | `deathRow` / `deathFrames` | the fall animation (row + frame count) |
 | `bloodOnTarget` | `false` = this character's blows do not make the target bleed |
 | `behavior` | `"patrol"` (the default: it walks its stretch until the fight) or `"sentry"` (it stands still, untouchable, until the fight starts) |
-| `moves` | `[{ key, row, type, alternate }]` — `key` is null for the AI-driven moves; `type` is `punch` / `kick` / `headbutt` / `vomit` |
+| `moves` | `[{ key, row, type, frames, alternate }]` — `key` is null for the AI-driven moves; `type` is `punch` / `kick` / `headbutt` / `vomit`; `frames` is the number of frames the attack plays (default 4) |
 | `jumpKey` / `jumpDurationMs` / `jumpHeightPx` | the jump of the player |
 | `attackKind` | **derived, not in the file**: `"ranged"` when any move has `type: "vomit"`, otherwise `"melee"` |
 
-**The sprite-sheet convention**: 150×150 px frames, one animation per row. Row 0 = the walk cycle (8 frames). **Each move is its own row of 4 frames**; `"alternate": true` uses the row's two 4-frame groups and switches on every other attack (Rudy's punch: frames 0–3 the right hand, 4–7 the left). A sheet may also carry a **death row** (`deathRow` + `deathFrames`, default 4) played on defeat while the body slides a little back. `facing = -1` mirrors horizontally.
+**The sprite-sheet convention**: 150×150 px frames, one animation per row. Row 0 = the walk cycle (8 frames). **Each move is its own row, 4 frames per attack by default** — the move's `frames` key overrides the count (the red robol's kick plays all 8 of its row). `"alternate": true` uses the row's two frame groups of that size and switches on every other attack (Rudy's punch: frames 0–3 the right hand, 4–7 the left). A sheet may also carry a **death row** (`deathRow` + `deathFrames`, default 4) played on defeat while the body slides a little back. `facing = -1` mirrors horizontally.
 
 ## The asset conventions
 
@@ -220,7 +220,7 @@ Change these only deliberately — the timings are what the game feels like.
 | the street-end wall | 40 px | `src/world/layout.js` |
 | the patrol stretch | the whole section: x = 0…1450 | `src/world/layout.js` |
 | the walk cycle | 80 ms per frame, 8 frames | the character config / `asset-conventions.js` |
-| the punch | 17.5 ms per frame, 4 frames per move | the character config |
+| the punch | 17.5 ms per frame, 4 frames per move (`moves[].frames` overrides) | the character config |
 | the strike reach | 80 px (hitbox edge to hitbox edge) | `src/domain/combat/combat.js` |
 | the RPS tie window | 100 ms inclusive | `src/domain/combat/combat.js` |
 | the damage | 1 per blow | `src/domain/combat/combat.js` |

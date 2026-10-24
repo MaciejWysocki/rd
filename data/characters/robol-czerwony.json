@@ -1,0 +1,15 @@
+{
+    "name": "robol-czerwony",
+    "sprite": "robol-czerwony",
+    "hp": 9,
+    "walkSpeed": 80,
+    "walkFrameMs": 200,
+    "attackFrameMs": 100,
+    "attackHoldMs": 400,
+    "recoveryMs": 700,
+    "deathRow": 2,
+    "hitbox": { "x": 55, "y": 120, "w": 20, "h": 25 },
+    "moves": [
+        { "row": 1, "type": "kick", "frames": 8 }
+    ]
+}

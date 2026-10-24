@@ -12,7 +12,8 @@
 //
 // Sprite-sheet convention (150x150 frames, one animation per row):
 //   row 0            - the walk cycle, 8 frames
-//   a move's row     - one attack = 4 frames (8 when the move is "alternate")
+//   a move's row     - one attack = the move's "frames" frames (default 4); a
+//                      move with "alternate" holds two such groups in the row
 //   the death row    - the fall, deathFrames frames
 
 import { ATTACK_FRAMES, WALK_FRAMES } from './asset-conventions.js';
@@ -108,10 +109,10 @@ export function normalizeCharacter(raw, source) {
 
 /**
  * The number of frames of every sprite-sheet row.
- * Rows: the walk row (0), one row per move and the death row. Every row
- * starts with the frames of one attack (4); the walk row has 8, an
- * "alternate" move has two attack groups (8) and the death row has the
- * frames of the fall.
+ * Rows: the walk row (0), one row per move and the death row. A move's row
+ * holds one attack of `frames` frames (4 by default); an "alternate" move
+ * holds two such groups and switches groups on every other attack. The walk
+ * row has 8 frames, the death row has the frames of the fall.
  * @param {object[]} moves The normalized move list.
  * @param {number|null} deathRow The row of the fall animation.
  * @param {number} deathFrames The number of frames of the fall.
@@ -122,7 +123,7 @@ function deriveFramesPerRow(moves, deathRow, deathFrames) {
     const rowFrames = Array.from({ length: rows }, () => ATTACK_FRAMES);
     rowFrames[0] = WALK_FRAMES;
     for (const move of moves) {
-        if (move.alternate) rowFrames[move.row] = ATTACK_FRAMES * 2;
+        rowFrames[move.row] = move.frames * (move.alternate ? 2 : 1);
     }
     if (deathRow !== null) rowFrames[deathRow] = deathFrames;
     return rowFrames;
@@ -173,7 +174,7 @@ function normalizeBehavior(raw, source) {
     return raw;
 }
 
-/** The move set of a character: [{key, row, type, alternate}]. */
+/** The move set of a character: [{key, row, type, frames, alternate}]. */
 function normalizeMoves(raw, source) {
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
@@ -197,10 +198,13 @@ function normalizeMoves(raw, source) {
             );
         }
         const key = move.key === undefined || move.key === null ? null : String(move.key);
+        const frames = move.frames === undefined || move.frames === null
+            ? ATTACK_FRAMES
+            : requirePositiveNumber(move.frames, `moves[${index}].frames`, source);
         const alternate = move.alternate === undefined || move.alternate === null
             ? false
             : Boolean(move.alternate);
-        return { key, row: move.row, type: move.type, alternate };
+        return { key, row: move.row, type: move.type, frames, alternate };
     });
 }
 

@@ -13,10 +13,11 @@
 //
 // Sprite-sheet convention: 150x150 frames, one animation per row.
 //   row 0 (ROW_WALK) - walk cycle, 8 frames
-//   each move        - its own row; one attack plays 4 frames. A move with
-//                      "alternate": true uses two 4-frame groups in the row and
-//                      switches groups on every other attack (e.g. Rudy's punch:
-//                      frames 0-3 right hand, 4-7 left hand).
+//   each move        - its own row; one attack plays the move's frames (default
+//                      4: the config's moves[].frames). A move with
+//                      "alternate": true uses two groups of that many frames in
+//                      the row and switches groups on every other attack (e.g.
+//                      Rudy's punch: frames 0-3 right hand, 4-7 left hand).
 //
 // An attack runs from startAttack() until endAttack(). It plays to the last
 // frame of the move's group and then holds there (the "full stretch" where the
@@ -122,7 +123,7 @@ export default class Actor {
 
     /**
      * Starts an attack with the given move (default: the first configured move).
-     * On an "alternate" move, every second attack plays the second 4-frame group.
+     * On an "alternate" move, every second attack plays the second frame group.
      * @returns {boolean} false if an attack is already running.
      */
     startAttack(move = this.moves[0]) {
@@ -131,6 +132,9 @@ export default class Actor {
         this.attackMove = move;
         this.attackStep = 0;
         this.attackElapsedMs = 0;
+        // The frame count of the running attack comes from the move
+        // (moves[].frames in the config; the character's default when absent).
+        this.attackFrames = move.frames ?? this.character.attackFrames ?? ATTACK_FRAMES;
         this.attackFrameBase = move.alternate && this.attackCount % 2 === 1 ? this.attackFrames : 0;
         this.attackCount += 1;
         this.row = move.row;

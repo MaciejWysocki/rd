@@ -109,19 +109,20 @@
             ],
             "enemies": [
                 {
-                    "id": "dziadek-biurowy",
-                    "type": "dziadek-biurowy",
-                    "x": 1450,
-                    "y": 598,
-                    "fight": { "type": "hit" }
-                },
-                {
                     "id": "baba-dzwigara",
                     "type": "baba-dzwigara",
                     "x": 300,
                     "y": 598,
                     "facing": "right",
                     "fight": { "type": "hit" }
+                },
+                {
+                    "id": "robol-czerwony",
+                    "type": "robol-czerwony",
+                    "x": 1000,
+                    "y": 598,
+                    "fight": { "type": "distance", "distance": 500 },
+                    "presentWhen": { "mission": [3] }
                 }
             ]
         }
