@@ -8,6 +8,7 @@
     "attackHoldMs": 400,
     "recoveryMs": 700,
     "deathRow": 2,
+    "deathFrames": 8,
     "hitbox": { "x": 55, "y": 120, "w": 20, "h": 25 },
     "moves": [
         { "row": 1, "type": "kick", "frames": 8 }
