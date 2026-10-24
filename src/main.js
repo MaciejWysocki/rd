@@ -65,7 +65,7 @@ async function startFreshGame() {
         FRAME_SIZE,
         playerCharacter.framesPerRow,
     );
-    const player = new Player({ x: START_X, y: GROUND_Y, character: playerCharacter, sheet });
+    const player = new Player({ x: START_X, y: GROUND_Y + 5, character: playerCharacter, sheet });
     // The domain stays free of the audio adapter: the jump sound is hooked in here.
     player.onJump = () => playJumpSound(playerCharacter.name);
     await player.load();
