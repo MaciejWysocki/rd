@@ -60,14 +60,13 @@
             "overlays": [
                 { "x": 1427, "y": 573, "when": { "mission": [0] } }
             ],
-            "enemies": [
+            "neutrals": [
                 {
                     "id": "dziadek-biurowy",
                     "type": "dziadek-biurowy",
                     "x": 500,
                     "y": 598,
-                    "facing": "right",                    
-                    "fight": { "type": "hit" }
+                    "facing": "right"
                 }
             ],
             "bosses": [
@@ -107,15 +106,16 @@
                     "when": { "mission": [3] }
                 }
             ],
-            "enemies": [
+            "neutrals": [
                 {
                     "id": "baba-dzwigara",
                     "type": "baba-dzwigara",
                     "x": 300,
                     "y": 598,
-                    "facing": "right",
-                    "fight": { "type": "hit" }
-                },
+                    "facing": "right"
+                }
+            ],
+            "enemies": [
                 {
                     "id": "robol-czerwony",
                     "type": "robol-czerwony",

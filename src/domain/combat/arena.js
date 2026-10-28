@@ -14,8 +14,8 @@
 //   { type: 'draw',   attacker, target }             — an exact tie: both miss
 //   { type: 'ranged', attacker }                     — a released projectile
 //
-// An enemy's target is always the player; the player's target is the nearest
-// opponent it can reach.
+// Hostiles normally target the player, but retaliate against neutral attackers.
+// Neutrals target their attacker; the player targets the nearest opponent in reach.
 
 import { isStrikeInRange, resolveStrike, strikeDirection } from './combat.js';
 
@@ -41,7 +41,7 @@ export function arbitrate(combatants, { player, solids = [] }) {
     for (const attacker of strikes) {
         // An earlier blow may have interrupted or defeated this attacker.
         if (attacker.defeated || !attacker.attacking || attacker.attackResolved) continue;
-        const target = attacker === player ? pickStrikeTarget(player, combatants) : player;
+        const target = strikeTarget(attacker, player, combatants);
 
         // A ranged attack does not use the RPS: it releases its projectile.
         if (isRangedAttack(attacker)) {
@@ -50,18 +50,40 @@ export function arbitrate(combatants, { player, solids = [] }) {
             continue;
         }
 
-        const outcome = resolveStrike(attacker, target, solids);
-        if (outcome === 'hit') {
-            events.push({ type: 'hit', attacker, target, direction: strikeDirection(attacker, target) });
-        } else if (outcome === 'draw') {
-            events.push({ type: 'draw', attacker, target });
-        } else {
-            events.push({ type: 'miss', attacker });
+        // Hostiles still choose their normal target, but a melee swing can also
+        // catch pedestrians in its path. Resolve each victim through the same
+        // range and RPS rules as the selected target.
+        const hostile = attacker.role === 'enemy' || attacker.role === 'boss';
+        const targets = [hostile && target !== player && target?.role !== 'neutral' ? null : target];
+        if (hostile) {
+            for (const candidate of combatants ?? []) {
+                if (candidate.role === 'neutral' && !targets.includes(candidate)) targets.push(candidate);
+            }
         }
+
+        let connected = false;
+        for (const victim of targets) {
+            const opposing = victim && strikeTarget(victim, player, combatants) === attacker;
+            const outcome = resolveStrike(attacker, victim, solids, opposing);
+            if (outcome === 'hit') {
+                connected = true;
+                events.push({ type: 'hit', attacker, target: victim, direction: strikeDirection(attacker, victim), defeated: victim.defeated });
+            } else if (outcome === 'draw') {
+                connected = true;
+                events.push({ type: 'draw', attacker, target: victim });
+            }
+        }
+        if (!connected) events.push({ type: 'miss', attacker });
     }
 
     return events;
 }
+/** Selects the actor a combatant's current blow is directed at. */
+function strikeTarget(attacker, player, combatants) {
+    if (attacker === player) return pickStrikeTarget(player, combatants);
+    return attacker.selectTarget(player);
+}
+
 
 /** Nearest opponent the player's blow can reach right now, or null (whiff). */
 function pickStrikeTarget(player, combatants) {

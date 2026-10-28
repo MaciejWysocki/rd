@@ -14,6 +14,8 @@
 //   'hit'     — the enemy is peaceful until the player hits him; then he fights
 // The trigger is re-evaluated every frame, so a patrol enemy disengages
 // again when the player walks away.
+// A neutral that lands a hit becomes the enemy's target until it falls or
+// another attacker hits the enemy. Before that, enemies only pursue Rudy.
 //
 // A sentry (behavior: 'sentry', the old boss) stands still, does not turn and
 // cannot be hit until its fight starts. The fight starts when the trigger is
@@ -29,9 +31,9 @@
 //
 // In strike reach an enemy attacks IMMEDIATELY — no reaction pause (owner
 // 2026-10-14). One blow per exchange (see combat.js): the blow is resolved
-// at full extension and the only wait is between consecutive blows — the
-// full-stretch hold (attackHoldMs) and the recovery (recoveryMs) before the
-// next one. A defeated enemy stops acting and lies on the ground until the
+// at the move's hit frame and the only wait is between consecutive blows —
+// the remaining animation, attack hold (attackHoldMs) and recovery (recoveryMs).
+// A defeated enemy stops acting and lies on the ground until the
 // section is left (Actor.draw).
 //
 // A ranged character (character.attackKind === 'ranged', the old boss's
@@ -45,6 +47,7 @@ import { HIT_DAMAGE, STRIKE_REACH_PX, isStrikeInRange } from '../combat/combat.j
 
 const DIR_LEFT = -1;
 const DIR_RIGHT = 1;
+const EMPTY_TARGETS = [];
 
 const DEFAULT_ENGAGE_DISTANCE_PX = 350; // how close the player must come (no "distance" in the config)
 const ATTACK_HOLD_MS = 150;   // default hold of the full-stretch frame after the blow resolves
@@ -95,6 +98,7 @@ export default class Enemy extends Actor {
         // 'melee' trades blows, 'ranged' releases a projectile.
         this.attackKind = character.attackKind ?? 'melee';
         this.projectile = projectile;
+        this._projectileHit = (target) => target.takeDamage(HIT_DAMAGE, 0, EMPTY_TARGETS, this);
         // The fight trigger from the street config.
         this.trigger = {
             type: trigger?.type ?? 'distance',
@@ -105,12 +109,13 @@ export default class Enemy extends Actor {
         // How far the strike reaches (a ranged enemy reaches as far as its spray).
         this.attackReachPx = character.attackReachPx
             ?? (this.attackKind === 'ranged' ? RANGED_ATTACK_REACH_PX : STRIKE_REACH_PX);
-        // How long the full-stretch frame is held before returning to the
-        // straight pose (e.g. the bald thug lingers in the headbutt for 0.5 s).
+        // How long to wait after impact before returning to the straight pose
+        // (e.g. the bald thug lingers in the headbutt for 0.5 s).
         this.attackHoldMs = character.attackHoldMs ?? ATTACK_HOLD_MS;
         this.attackHoldElapsed = 0;
         this.fightStarted = false; // the sentry's latch — the fight never ends
         this.hitEngaged = false;   // the player hit him — from now on he fights back
+        this.retaliationTarget = null; // a neutral that landed a blow
     }
 
     /**
@@ -120,7 +125,7 @@ export default class Enemy extends Actor {
      * @param {Actor|null} target The player.
      */
     shouldStartFight(target) {
-        return this.triggerMet(target);
+        return Boolean(this.retaliationTarget && !this.retaliationTarget.defeated) || this.triggerMet(target);
     }
 
     /** Starts the fight. The intro audio and the boss music are the caller's job. */
@@ -140,16 +145,20 @@ export default class Enemy extends Actor {
         if (direction) this.direction = direction;
     }
 
-    /** A hit ends the peace: the enemy fights back from now on. */
-    takeDamage(amount = 1, direction = 0, solids = []) {
-        this.hitEngaged = true;
-        super.takeDamage(amount, direction, solids);
+    /** A surviving enemy retaliates against a neutral that actually hit it. */
+    takeDamage(amount = 1, direction = 0, solids = [], attacker = null) {
+        const previousHp = this.hp;
+        if (!this.defeated && amount > 0) this.hitEngaged = true;
+        super.takeDamage(amount, direction, solids, attacker);
+        if (this.role !== 'neutral' && !this.defeated && this.hp < previousHp && attacker && attacker !== this) {
+            this.retaliationTarget = attacker.role === 'neutral' && !attacker.defeated ? attacker : null;
+        }
     }
 
-    /** True while this enemy is fighting the player (the HUD shows its HP). */
+    /** True while this enemy is fighting (the HUD shows its HP). */
     isFighting(target) {
         if (this.defeated) return false;
-        return this.behavior.fighting(this, target);
+        return this.engagedWith(this.retaliationTarget) || this.behavior.fighting(this, target);
     }
 
     /** A sentry is untouchable until the fight starts — the 'hit' trigger excepted. */
@@ -170,7 +179,8 @@ export default class Enemy extends Actor {
      * @param {object} env The world around the enemy: { solids, target }.
      */
     update(dt, env = {}) {
-        const { solids = [], target = null } = env;
+        const { solids = [] } = env;
+        const target = this.selectTarget(env.target ?? null);
         if (this.defeated) {
             this.advance(dt); // the fall animation keeps playing
             return;
@@ -180,10 +190,10 @@ export default class Enemy extends Actor {
 
         if (this.attacking) {
             this.vx = 0;
-            // Hold the full-stretch frame until the blow has been resolved and shown.
+            // Finish the animation as well as the post-impact hold.
             if (this.attackResolved) {
                 this.attackHoldElapsed += dt;
-                if (this.attackHoldElapsed >= this.attackHoldMs) this.endAttack();
+                if (this.attackHoldElapsed >= this.attackHoldMs && this.isAttackAnimationDone()) this.endAttack();
             }
             this.advance(dt);
             return;
@@ -193,6 +203,15 @@ export default class Enemy extends Actor {
         else this.behavior.idle(this, dt, solids);
 
         this.advance(dt);
+    }
+
+    /** Retaliation takes priority; otherwise the enemy targets the player. */
+    selectTarget(target) {
+        if (this.retaliationTarget?.defeated) {
+            this.retaliationTarget = null;
+            if (!this.attackResolved || this.attackHitFrame === this.attackFrames - 1) this.endAttack();
+        }
+        return this.retaliationTarget ?? target;
     }
 
     /** Releases the ranged attack: the projectile leaves the mouth, no RPS. */
@@ -205,16 +224,13 @@ export default class Enemy extends Actor {
      * Flies the projectile and applies its damage. The app layer calls it once
      * per frame, after the melee blows have been resolved.
      * @param {number} dt Delta time in ms.
-     * @param {Actor|null} target The player, when present and hittable.
+     * @param {Array<Actor>} targets Eligible player and neutral targets.
      * @returns {'hit'|'miss'|null} The outcome of the burst — the app layer
      *   turns it into the sound of the impact.
      */
-    updateProjectile(dt, target = null) {
+    updateProjectile(dt, targets = EMPTY_TARGETS) {
         if (!this.projectile) return null;
-        const livingTarget = this.defeated ? null : target;
-        const outcome = this.projectile.update(dt, livingTarget);
-        if (livingTarget && outcome === 'hit') livingTarget.takeDamage(HIT_DAMAGE);
-        return outcome;
+        return this.projectile.update(dt, this.defeated ? EMPTY_TARGETS : targets, this._projectileHit, this);
     }
 
     draw(ctx) {
@@ -230,14 +246,14 @@ export default class Enemy extends Actor {
         return Math.abs(centerX(this) - centerX(target)) <= this.engageDistancePx;
     }
 
-    /** True while this enemy is fighting the player — the trigger decides when. */
+    /** Retaliation continues regardless of the normal player fight trigger. */
     engagedWith(target) {
         if (this.defeated) return false;
         if (!target || !target.canBeHit()) return false;
-        return this.behavior.engaged(this, target);
+        return target === this.retaliationTarget || this.behavior.engaged(this, target);
     }
 
-    /** Faces the player, closes in and trades single blows. */
+    /** Faces the target, closes in and trades single blows. */
     _combatStance(dt, solids, target) {
         const targetCenter = centerX(target);
         this.facing = targetCenter >= centerX(this) ? DIR_RIGHT : DIR_LEFT;

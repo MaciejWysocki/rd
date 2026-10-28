@@ -4,12 +4,10 @@
 //
 // The boss's ranged attack: a burst of small (5x5 px) green squares spat from
 // its mouth toward the player (owner 2026-10-15). The burst flies in an arc
-// and can hurt the player within VOMIT_HIT_PX of the mouth ("in about 300 px
-// it should hit and hurt the player"); then it keeps flying and the squares
-// land on the ground at about VOMIT_RANGE_PX ("fly and fall down in 600 px"),
-// staining it until the section is left. One burst hurts at most once and
-// never sprays blood — the green squares are the whole effect. A player who
-// jumps over the spray is not hit (owner 2026-10-15).
+// and can hurt eligible targets within VOMIT_HIT_PX of the mouth; then it
+// keeps flying and lands at about VOMIT_RANGE_PX, staining the ground until
+// the section is left. Each burst hurts each target at most once and never
+// sprays blood. A player who jumps over the spray is not hit.
 //
 // The physics of the squares is the shared particle field
 // (render/particles.js); this module only says how the spit looks, where it
@@ -55,30 +53,38 @@ export default class Vomit {
                 groundY,
             );
         }
-        this.bursts.push({ originX, dirX, field, hit: false });
+        this.bursts.push({ originX, dirX, field, victims: new Set(), expired: false });
     }
 
     /**
      * Gravity plus the hit test. Returns 'hit', 'miss' or null.
      * @param {number} dt Delta time in ms.
-     * @param {Actor|null} target The player, when present and hittable.
+     * @param {Array<Actor>} targets Eligible targets.
+     * @param {Function} onHit Applies damage to a reached target.
+     * @param {Actor} source The attacker, excluded from its own spray.
      */
-    update(dt, target = null) {
+    update(dt, targets = [], onHit, source) {
         let landedUnhit = false;
         let hitLanded = false;
         for (const burst of this.bursts) {
             burst.field.update(dt);
-            if (!burst.hit && target && this._reaches(burst, target)) {
-                burst.hit = true;
-                hitLanded = true;
+            if (burst.expired) continue;
+            const travelled = (this._leadX(burst) - burst.originX) * burst.dirX;
+            if (travelled <= VOMIT_HIT_PX) {
+                for (const target of targets) {
+                    if (target === source || target.defeated || !target.canBeHit()
+                        || burst.victims.has(target) || !this._reaches(burst, target)) continue;
+                    burst.victims.add(target);
+                    onHit(target);
+                    hitLanded = true;
+                }
             }
-            if (burst.field.allLanded && !burst.hit) {
-                burst.hit = true; // over: it can no longer hurt anyone
-                landedUnhit = true;
+            if (burst.field.allLanded) {
+                burst.expired = true;
+                if (burst.victims.size === 0) landedUnhit = true;
             }
         }
-        // Landed bursts stay: the green squares are stains until the section is
-        // left (they are wiped with the boss on section exit).
+        // Landed bursts stay as stains until the section is left.
         return hitLanded ? 'hit' : (landedUnhit ? 'miss' : null);
     }
 
@@ -96,8 +102,6 @@ export default class Vomit {
         // Jumping over the spray dodges it (owner 2026-10-15): the burst only
         // hits a player standing on the ground — it flies under a hopping one.
         if (target.jumping || target.drawOffsetY > 0) return false;
-        const travelled = (this._leadX(burst) - burst.originX) * burst.dirX;
-        if (travelled > VOMIT_HIT_PX) return false;
         const left = target.x;
         const right = left + FRAME_SIZE;
         const top = target.y;

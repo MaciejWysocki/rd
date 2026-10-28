@@ -21,9 +21,11 @@
 //   overlays    — background overlays: { x, y, when }
 //   interactions — the walkable spots of the section
 //   enemies     — the hostiles of the section
+//   neutrals   — the neutral pedestrians of the section
 //   bosses      — the bosses of the section
 
 import Enemy from '../domain/actors/enemy.js';
+import Neutral from '../domain/actors/neutral.js';
 import SpriteSheet from '../render/sprite-sheet.js';
 import Vomit from '../render/vomit.js';
 import { planEntityHues } from './entity-hues.js';
@@ -151,7 +153,7 @@ export default class Section {
     }
 
     /**
-     * Spawns the hostiles of the section: the enemies and the bosses. A type
+     * Spawns the entities of the section: enemies, neutral pedestrians and bosses. A type
      * without a character config is not implemented yet and is skipped. An
      * entity with a "presentWhen" condition exists only while the condition
      * holds — the mission decides what is in the world. The state of a hostile
@@ -169,6 +171,7 @@ export default class Section {
     async _spawnEnemies(session, context) {
         const entities = [
             ...this.model.enemies.map(entity => ({ ...entity, role: 'enemy' })),
+            ...this.model.neutrals.map(entity => ({ ...entity, role: 'neutral' })),
             ...this.model.bosses.map(entity => ({ ...entity, role: 'boss' })),
         ];
 
@@ -198,7 +201,8 @@ export default class Section {
                 character.framesPerRow,
                 hue,
             );
-            const enemy = new Enemy({
+            const ActorClass = entity.role === 'neutral' ? Neutral : Enemy;
+            const enemy = new ActorClass({
                 x: entity.x,
                 y: entity.y,
                 character,
@@ -229,7 +233,7 @@ export default class Section {
      * The identity of a hostile in the state store of the session: the
      * street, the section, the list it comes from, its label and its place
      * in that list.
-     * @param {object} entity The entity (an enemy or a boss of the model).
+     * @param {object} entity The entity (an enemy, neutral or boss of the model).
      * @returns {object} The identity.
      */
     _identity(entity) {

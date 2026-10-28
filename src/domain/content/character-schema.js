@@ -123,7 +123,7 @@ function deriveFramesPerRow(moves, deathRow, deathFrames) {
     const rowFrames = Array.from({ length: rows }, () => ATTACK_FRAMES);
     rowFrames[0] = WALK_FRAMES;
     for (const move of moves) {
-        rowFrames[move.row] = move.frames * (move.alternate ? 2 : 1);
+        rowFrames[move.row] = Math.max(rowFrames[move.row], move.frames * (move.alternate ? 2 : 1));
     }
     if (deathRow !== null) rowFrames[deathRow] = deathFrames;
     return rowFrames;
@@ -174,7 +174,7 @@ function normalizeBehavior(raw, source) {
     return raw;
 }
 
-/** The move set of a character: [{key, row, type, frames, alternate}]. */
+/** The move set of a character: [{key, row, type, frames, hitFrame, alternate}]. */
 function normalizeMoves(raw, source) {
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
@@ -201,10 +201,16 @@ function normalizeMoves(raw, source) {
         const frames = move.frames === undefined || move.frames === null
             ? ATTACK_FRAMES
             : requirePositiveNumber(move.frames, `moves[${index}].frames`, source);
+        const hitFrame = move.hitFrame === undefined || move.hitFrame === null
+            ? frames - 1
+            : move.hitFrame;
+        if (!Number.isInteger(hitFrame) || hitFrame < 0 || hitFrame > frames - 1) {
+            throw characterError(source, `pole "moves[${index}].hitFrame" musi być liczbą całkowitą od 0 do ${frames - 1}.`);
+        }
         const alternate = move.alternate === undefined || move.alternate === null
             ? false
             : Boolean(move.alternate);
-        return { key, row: move.row, type: move.type, frames, alternate };
+        return { key, row: move.row, type: move.type, frames, hitFrame, alternate };
     });
 }
 

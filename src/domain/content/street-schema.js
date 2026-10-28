@@ -18,6 +18,7 @@
 //     overlays    — background overlays ({x, y, when, position})
 //     interactions— the walkable spots ({id, type, x1, x2, when, triggers})
 //     enemies     — the enemies of the section
+//     neutrals   — the neutral pedestrians of the section
 //     bosses      — the bosses of the section
 //
 // A condition ("when") and an effect are written in a terse JSON form and are
@@ -36,7 +37,7 @@ const INTERACTION_TYPES = ['walkable'];
 // key is a typo (or an old file) and is refused instead of being silently
 // read as an empty section.
 const STREET_KEYS = ['name', 'mission', 'sections'];
-const SECTION_KEYS = ['name', 'onEnter', 'overlays', 'interactions', 'enemies', 'bosses'];
+const SECTION_KEYS = ['name', 'onEnter', 'overlays', 'interactions', 'enemies', 'neutrals', 'bosses'];
 const OVERLAY_KEYS = ['x', 'y', 'when', 'position'];
 const INTERACTION_KEYS = ['id', 'type', 'x1', 'x2', 'when', 'triggers'];
 // Where an overlay is drawn: "back" with the background, "front" over the
@@ -116,9 +117,10 @@ function normalizeSection(raw, streetId, source, index) {
     const overlays = normalizeOverlays(raw.overlays, streetId, source, context);
     const interactions = normalizeInteractions(raw.interactions, streetId, source, context);
     const enemies = normalizeEntities(raw.enemies, 'enemy', streetId, source, context);
+    const neutrals = normalizeEntities(raw.neutrals, 'neutral', streetId, source, context);
     const bosses = normalizeEntities(raw.bosses, 'boss', streetId, source, context);
 
-    return { number, name, onEnter, overlays, interactions, enemies, bosses };
+    return { number, name, onEnter, overlays, interactions, enemies, neutrals, bosses };
 }
 
 /** The background overlays of a section: [{x, y, when, position}]. */
@@ -193,25 +195,27 @@ function normalizeInteractions(raw, streetId, source, sectionContext) {
     });
 }
 
-/** The hostiles of a section: enemies (role "enemy") and bosses (role "boss"). */
+/** The entities of a section: enemies, neutral pedestrians and bosses. */
 function normalizeEntities(raw, role, streetId, source, sectionContext) {
+    const listName = role === 'boss' ? 'bosses' : role === 'neutral' ? 'neutrals' : 'enemies';
+    const label = role === 'boss' ? 'boss' : role === 'neutral' ? 'postać neutralna' : 'przeciwnik';
     if (raw === undefined || raw === null) return [];
     if (!Array.isArray(raw)) {
-        fail(streetId, source, sectionContext, `pole "${role === 'boss' ? 'bosses' : 'enemies'}" musi być tablicą.`);
+        fail(streetId, source, sectionContext, `pole "${listName}" musi być tablicą.`);
     }
     return raw.map((entity, index) => {
         if (!isPlainObject(entity)) {
-            fail(streetId, source, sectionContext, `${role === 'boss' ? 'boss' : 'przeciwnik'} ${index + 1} musi być obiektem.`);
+            fail(streetId, source, sectionContext, `${label} ${index + 1} musi być obiektem.`);
         }
         checkKeys(entity, ENTITY_KEYS, streetId, source, sectionContext);
         const id = entity.id;
         if (typeof id !== 'string' || !id.trim()) {
             fail(
                 streetId, source, sectionContext,
-                `${role === 'boss' ? 'boss' : 'przeciwnik'} ${index + 1}: pole "id" jest wymagane.`
+                `${label} ${index + 1}: pole "id" jest wymagane.`
             );
         }
-        const context = `${sectionContext}, ${role === 'boss' ? 'boss' : 'przeciwnik'} "${id}"`;
+        const context = `${sectionContext}, ${label} "${id}"`;
         // A type without a character config is not an error: the spawn skips it.
         if (typeof entity.type !== 'string' || !entity.type.trim()) {
             fail(streetId, source, context, 'pole "type" jest wymagane.');

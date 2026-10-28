@@ -19,9 +19,9 @@
 //                      the row and switches groups on every other attack (e.g.
 //                      Rudy's punch: frames 0-3 right hand, 4-7 left hand).
 //
-// An attack runs from startAttack() until endAttack(). It plays to the last
-// frame of the move's group and then holds there (the "full stretch" where the
-// hit is resolved); the caller decides when to end it.
+// An attack runs from startAttack() until endAttack(). It resolves at its
+// move's hit frame (the last frame by default), then plays to the last frame
+// and holds there until the caller ends it.
 //
 // The frame of an actor is advanced by advance(dt) — the shared animation
 // step. The subclasses add their own input handling in update(dt, env); the
@@ -135,6 +135,7 @@ export default class Actor {
         // The frame count of the running attack comes from the move
         // (moves[].frames in the config; the character's default when absent).
         this.attackFrames = move.frames ?? this.character.attackFrames ?? ATTACK_FRAMES;
+        this.attackHitFrame = move.hitFrame ?? this.attackFrames - 1;
         this.attackFrameBase = move.alternate && this.attackCount % 2 === 1 ? this.attackFrames : 0;
         this.attackCount += 1;
         this.row = move.row;
@@ -158,14 +159,21 @@ export default class Actor {
         this.attackCooldownMs = this.recoveryMs;
     }
 
-    /** True once the attack has reached its last frame (full stretch; this is where the hit is resolved). */
+    /** True once the attack has reached its configured hit frame. */
     isAttackAtFullExtension() {
-        return this.attacking && this.attackStep >= this.attackFrames - 1;
+        return this.attacking && this.attackStep >= this.attackHitFrame;
     }
 
-    /** Signed time to full extension; negative means it finished earlier this frame. */
+    /** Signed time to the hit frame; negative means it was reached earlier this frame. */
     attackFinishInMs() {
-        return (this.attackFrames - 1) * this.attackFrameMs - this.attackElapsedMs;
+        return this.attackHitFrame * this.attackFrameMs - this.attackElapsedMs;
+    }
+
+    /** Early hits play the entire animation; final-frame hits retain their original timing. */
+    isAttackAnimationDone() {
+        return this.attacking && (this.attackHitFrame === this.attackFrames - 1
+            ? this.attackStep >= this.attackFrames - 1
+            : this.attackElapsedMs >= this.attackFrames * this.attackFrameMs);
     }
 
     /** True while this character can be struck (a sentry before its fight cannot). */

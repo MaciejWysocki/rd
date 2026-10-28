@@ -166,16 +166,27 @@ export default class PlayScreen {
             solids,
         });
         this.feedback.applyEvents(events);
-        for (const enemy of section.enemies) this._countKill(enemy, section);
+        for (const event of events) {
+            if (event.type === 'hit' && event.defeated && event.target !== this.player) {
+                this._countKill(event.target, section, event.attacker);
+            }
+        }
     }
 
-    /** The ranged bursts in flight: they hurt the player and stain the ground. */
+    /** Ranged bursts can strike the player and neutral bystanders. */
     _updateProjectiles(section, dt) {
-        for (const enemy of section?.enemies ?? []) {
-            // A burst in flight finishes after the boss's defeat, but it can no
-            // longer hurt anyone.
-            const outcome = enemy.updateProjectile(dt, this.player);
-            if (outcome === 'hit') this.feedback.playImpact(enemy);
+        if (!section) return;
+        const targets = [this.player, ...section.enemies.filter(actor => actor.role === 'neutral')];
+        for (const enemy of section.enemies) {
+            if (!enemy.projectile) continue;
+            // A burst in flight finishes after the attacker's defeat but cannot hurt anyone.
+            const outcome = enemy.updateProjectile(dt, targets);
+            if (outcome === 'hit') {
+                this.feedback.playImpact(enemy);
+                for (const target of targets) {
+                    if (target !== this.player && target.defeated) this._countKill(target, section, enemy);
+                }
+            }
         }
     }
 
@@ -231,12 +242,12 @@ export default class PlayScreen {
         }
     }
 
-    _countKill(enemy, section) {
+    _countKill(enemy, section, attacker) {
         // A corpse that was already lying here (the session remembers it) is
         // not a new kill — it was counted when it fell.
         if (!enemy.defeated || enemy.spawnedDefeated || this._countedKills.has(enemy)) return;
         this._countedKills.add(enemy);
-        this.session.recordKill(this.player.name);
+        if (attacker === this.player) this.session.recordKill(this.player.name);
         // The corpse persists in the session: still lying here on later visits.
         this.session.markDefeated(this._identity(enemy, section), enemy);
         // A defeated boss closes its objective: the mission moves on to the

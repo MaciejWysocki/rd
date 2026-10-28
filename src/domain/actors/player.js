@@ -29,9 +29,8 @@
 // Debug run: holding Shift (either one) moves Rudy 4x faster while walking.
 //
 // Holding an attack key freezes on the last attack frame; releasing it returns
-// to the walk cycle. A quick tap still plays the full strike, because release
-// only ends the attack after it has reached full extension — the point where
-// combat.js resolves the hit. **Every press is a punch** (owner 2026-10-12):
+// to the walk cycle. A quick tap still plays the full strike, including any
+// frames after the hit. **Every press is a punch** (owner 2026-10-12):
 // the player has no recovery between blows (`recoveryMs: 0` in the config) and
 // presses made during a blow queue up and fire right after it — nothing is
 // dropped, there are no delays.
@@ -109,9 +108,9 @@ export default class Player extends Actor {
             return;
         }
 
-        // A quick tap still finishes its strike before returning to walking.
+        // A quick tap still finishes its animation before returning to walking.
         const attackKey = this.attackMove?.key;
-        if (this.attacking && this.attackResolved && attackKey && !keyboard.isDown(attackKey)) {
+        if (this.attacking && this.attackResolved && this.isAttackAnimationDone() && attackKey && !keyboard.isDown(attackKey)) {
             this.endAttack();
         }
         if (!this.attacking && this.attackCooldownMs <= 0 && this.moveQueue.length > 0) {

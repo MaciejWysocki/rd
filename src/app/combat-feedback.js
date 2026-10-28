@@ -20,15 +20,24 @@ export default class CombatFeedback {
      * @param {Array<object>} events The events of the arbitration.
      */
     applyEvents(events) {
+        if (events.length === 0) return;
+        const hittingAttackers = new Set(events.filter(event => event.type === 'hit').map(event => event.attacker));
+        const soundedAttackers = new Set();
         for (const event of events) {
             if (event.type === 'hit') {
-                playAttackSound(event.attacker.name, 'hit');
+                if (!soundedAttackers.has(event.attacker)) {
+                    playAttackSound(event.attacker.name, 'hit');
+                    soundedAttackers.add(event.attacker);
+                }
                 // Only bloody attackers make the target bleed (bloodOnTarget, default true).
                 if (event.attacker.bloodOnTarget) this.blood.spawn(event.target, event.direction);
             } else if (event.type === 'miss') {
                 playAttackSound(event.attacker.name, 'miss');
             } else if (event.type === 'draw') {
-                playAttackSound(event.attacker.name, 'miss');
+                if (!hittingAttackers.has(event.attacker) && !soundedAttackers.has(event.attacker)) {
+                    playAttackSound(event.attacker.name, 'miss');
+                    soundedAttackers.add(event.attacker);
+                }
                 playAttackSound(event.target.name, 'miss');
             } else if (event.type === 'ranged') {
                 playAttackSound(event.attacker.name);

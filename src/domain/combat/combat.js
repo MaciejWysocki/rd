@@ -62,7 +62,7 @@ export function strikeDirection(attacker, target) {
  * @returns {'hit'|'miss'|'draw'} Outcome of the blow — the application layer
  *   turns it into sound and blood.
  */
-export function resolveStrike(attacker, target, solids = []) {
+export function resolveStrike(attacker, target, solids = [], opposing = true) {
     attacker.attackResolved = true;
 
     const connects = target && target.canBeHit() && !target.jumping && target.drawOffsetY <= 0
@@ -71,7 +71,7 @@ export function resolveStrike(attacker, target, solids = []) {
 
     const move = attacker.attackMove?.type;
     const counter = target.attackMove?.type;
-    if (BEATS[move] && BEATS[counter] && target.attacking && !target.attackResolved
+    if (opposing && BEATS[move] && BEATS[counter] && target.attacking && !target.attackResolved
         && attacker.canBeHit() && !attacker.jumping && attacker.drawOffsetY <= 0
         && isStrikeInRange(target, attacker)) {
         const finishDelta = attacker.attackFinishInMs() - target.attackFinishInMs();
@@ -87,6 +87,6 @@ export function resolveStrike(attacker, target, solids = []) {
         }
     }
 
-    target.takeDamage(HIT_DAMAGE, strikeDirection(attacker, target), solids);
+    target.takeDamage(HIT_DAMAGE, strikeDirection(attacker, target), solids, attacker);
     return 'hit';
 }

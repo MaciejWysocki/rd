@@ -62,7 +62,8 @@ Rudy Dres is a browser "karate" beat-'em-up: Rudy walks a real street in the own
 | `actors/hitbox.js` | The collision box of an actor in world coordinates — **one place** for the rectangle arithmetic the combat, the knockback and the AI all use. |
 | `actors/behavior.js` | The AI behaviours of the hostiles (**Strategy**): `patrol` and `sentry` are strategy objects. A new behaviour is a new object here — the `Enemy` class does not change. |
 | `actors/player.js` | Rudy: the arrow keys, the jump, the queued punches, the debug speed multiplier, the `hidden` state of the walkable interaction. |
-| `actors/enemy.js` | **ONE class for every hostile**: the movement, the fight trigger, the ranged attack. The **behaviour** is a strategy. |
+| `actors/enemy.js` | **ONE class for every hostile**: the movement, the fight trigger, the ranged attack and retaliation against a neutral that hits it. The **behaviour** is a strategy. |
+| `actors/neutral.js` | A neutral pedestrian: reuses enemy movement and combat, but retaliates only against the character that last hit it while it survived. |
 | `combat/combat.js` | The strike rules (pure): reach, the RPS arbitration, 1 damage, the knockback, the knockback direction. It returns the outcome — it plays no sound. |
 | `combat/arena.js` | The chronological arbitration (pure): it returns the events (`hit` / `miss` / `draw` / `ranged`). |
 
@@ -106,7 +107,7 @@ Rudy Dres is a browser "karate" beat-'em-up: Rudy walks a real street in the own
 
 - A **street** is a JSON file (`data/streets/<number>-<name>.json`); its **sections** are placed from left to right and can be traversed back and forth — the section list in the config *is* the street. There is **no route**. The streets are played one after another in file-name order and the game ends after the last one.
 - **No continuous scrolling**: each section is a **static background screen** with a flat street strip at the bottom where the characters move; the screen switches when the player reaches a section edge. At the **ends of the street the boundary blocks Rudy and he walks in place**.
-- **Entering a section** (`Section.enter()` in `src/world/section.js`), in this order: 1. load the background → 2. build the walls → 3. apply the section's `onEnter` triggers (the mission may move on) → 4. spawn the hostiles (`enemies` + `bosses`) → 5. load the walkable interactions. The triggers run first, so what is in the world matches the state the player just walked into.
+- **Entering a section** (`Section.enter()` in `src/world/section.js`), in this order: 1. load the background → 2. build the walls → 3. apply the section's `onEnter` triggers (the mission may move on) → 4. spawn the actors (`enemies` + `neutrals` + `bosses`) → 5. load the walkable interactions. The triggers run first, so what is in the world matches the state the player just walked into.
 - **Leaving a section**: the hostiles are rebuilt from the config on the next entry, but their **state is persisted in the session** — a living hostile stands where the player left it, a defeated one still lies where it fell. A body stays on the street **even when its `presentWhen` no longer holds**.
 - **The mission**: every street has one main mission — the `mission` field, an array of log lines where the index is the stage. The stage moves on through the **effects** of the config's triggers (`{"mission": 2}` sets the stage). A **defeated boss advances the stage by one**; it does not end the street.
 - **When a street ends**: the mission has been advanced **PAST its last stage** (a stage with no log line of its own — that is how a config ends a street) *and* **no boss of the street is still standing**. A boss that is not present any more does not block the street.
@@ -123,14 +124,14 @@ One file per street; the file name (without `.json`) is the street id used by ev
 | Level | Keys |
 |---|---|
 | Street | `name` (defaults to the id), `mission` (an array of log lines, one per stage), `sections` (a non-empty array) |
-| Section | `name` (defaults to `<street> <n>`), `onEnter` (the triggers fired on entry), `overlays`, `interactions`, `enemies`, `bosses` |
+| Section | `name` (defaults to `<street> <n>`), `onEnter` (the triggers fired on entry), `overlays`, `interactions`, `enemies`, `neutrals`, `bosses` |
 | Overlay | `x`, `y` (numbers), `when` (a condition), `position` (`"back"` — the default — or `"front"`) — the image is `assets/bg/<street>-<n>-<i>.png`, the index is 1-based |
 | Interaction | `id` (required), `type` (`"walkable"`), `x1`/`x2` (the stretch of the section), `when` (a condition), `triggers` |
 | Trigger | `when` (a condition, optional), `stay` (ms, optional), `effects` (an array) |
-|Entity (`enemies` / `bosses`)|`id` (required), `type` (a character type, required), `x`, `y` (required numbers), `facing`, `fight`, `presentWhen`|
+|Entity (`enemies` / `neutrals` / `bosses`)|`id` (required), `type` (a character type, required), `x`, `y` (required numbers), `facing`, `fight`, `presentWhen`|
 |Fight|`type` (`"always"` \|`"distance"` \|`"hit"`), `distance` (required and > 0 for `"distance"`)|
 
-- The **role** (enemy / boss) comes from the list the entity is in — there is no `role` key in the config.
+- The **role** (enemy / neutral / boss) comes from the list the entity is in — there is no `role` key in the config. A neutral only fights back against the last attacker that hit it while it survived; its `fight` trigger is ignored.
 - `facing` — `"left"` (the default, like every hostile) or `"right"`: the way the hostile spawns facing **and sets off walking**. A patrol bounces across the **whole section** (edge to edge of the screen) wherever it spawns — `x` is only where it starts.
 - `presentWhen` — the entity exists in the world only while the condition holds.
 - The **overlay `position`**: `"back"` is drawn with the background, `"front"` is drawn **over the player and the enemies** — a street light standing in the foreground.
@@ -176,11 +177,11 @@ The file name is the character's **type**; the `name` field is the character nam
 | `deathRow` / `deathFrames` | the fall animation (row + frame count) |
 | `bloodOnTarget` | `false` = this character's blows do not make the target bleed |
 | `behavior` | `"patrol"` (the default: it walks its stretch until the fight) or `"sentry"` (it stands still, untouchable, until the fight starts) |
-| `moves` | `[{ key, row, type, frames, alternate }]` — `key` is null for the AI-driven moves; `type` is `punch` / `kick` / `headbutt` / `vomit`; `frames` is the number of frames the attack plays (default 4) |
+| `moves` | `[{ key, row, type, frames, hitFrame, alternate }]` — `key` is null for the AI-driven moves; `type` is `punch` / `kick` / `headbutt` / `vomit`; `frames` is the number of frames the attack plays (default 4); `hitFrame` is the zero-based impact frame (default last frame) |
 | `jumpKey` / `jumpDurationMs` / `jumpHeightPx` | the jump of the player |
 | `attackKind` | **derived, not in the file**: `"ranged"` when any move has `type: "vomit"`, otherwise `"melee"` |
 
-**The sprite-sheet convention**: 150×150 px frames, one animation per row. Row 0 = the walk cycle (8 frames). **Each move is its own row, 4 frames per attack by default** — the move's `frames` key overrides the count (the red robol's kick plays all 8 of its row). `"alternate": true` uses the row's two frame groups of that size and switches on every other attack (Rudy's punch: frames 0–3 the right hand, 4–7 the left). A sheet may also carry a **death row** (`deathRow` + `deathFrames`, default 4) played on defeat while the body slides a little back. `facing = -1` mirrors horizontally.
+**The sprite-sheet convention**: 150×150 px frames, one animation per row. Row 0 = the walk cycle (8 frames). **Each move is its own row, 4 frames per attack by default** — the move's `frames` key overrides the count (the red robol's kick plays all 8 of its row). `hitFrame` may put the impact before the final frame; the animation still plays through its remaining frames. `"alternate": true` uses the row's two frame groups of that size and switches on every other attack (Rudy's punch: frames 0–3 the right hand, 4–7 the left). A sheet may also carry a **death row** (`deathRow` + `deathFrames`, default 4) played on defeat while the body slides a little back. `facing = -1` mirrors horizontally.
 
 ## The asset conventions
 
